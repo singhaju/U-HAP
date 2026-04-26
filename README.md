@@ -123,4 +123,4 @@ Python 3.10+, see `requirements.txt` (Flask, PyYAML, NetworkX, Z3, pytest).
 
 ## License
 
-Apache License 2.0 — see [`LICENSE`](LICENSE).
+Copyright © 2026 Krittapak Jairak, Singha Junchan, Phisitphon Pruksorranan, Somchart Fugkeaw — SIIT, Thammasat University. All Rights Reserved. See [`LICENSE`](LICENSE).
