@@ -1,0 +1,52 @@
+---
+# U-HAP webhook authorizer — WebhookConfiguration
+#
+# Registers U-HAP as a Kubernetes webhook authorizer. The API server calls
+# the webhook for every SubjectAccessReview that is not satisfied by the
+# Node or RBAC authorizers.
+#
+# IMPORTANT — caBundle:
+#   Replace the placeholder value below with the base64-encoded TLS CA
+#   certificate used to sign the webhook server's TLS certificate.
+#   In a kind cluster, generate a self-signed cert with:
+#
+#     scripts/gen-tls.sh
+#
+#   Then run:
+#     CA_BUNDLE=$(base64 -w 0 < tls/ca.crt)
+#     sed -i "s|REPLACE_WITH_CA_BUNDLE|${CA_BUNDLE}|g" deploy/webhook-config.yaml
+#
+# Kind-specific note:
+#   The kind cluster must have extraPortMappings and
+#   kubeadm.k8s.io/apiserver.advertise-address set to allow the API server
+#   to reach the webhook service. See deploy/kind-config.yaml.
+
+apiVersion: authorization.k8s.io/v1
+kind: AuthorizationWebhook
+metadata:
+  name: uhap.authorization.k8s.io
+  labels:
+    app: uhap-webhook
+webhooks:
+  - name: uhap.authorization.k8s.io
+    # The API server calls this URL for every authorization check.
+    # Format: https://<service>.<namespace>.svc/<path>
+    matchConditions: []
+    clientConfig:
+      service:
+        name: uhap-webhook
+        namespace: kube-system
+        path: /authorize
+        port: 443
+      # Base64-encoded TLS CA certificate — MUST be set before deploying.
+      # See instructions above.
+      caBundle: REPLACE_WITH_CA_BUNDLE
+    # The webhook is authoritative: if it returns deny, the request is denied.
+    # If it returns "no opinion" (allowed: false, denied: false), the next
+    # authorizer in the chain is consulted.
+    authorizedResources:
+      - resources: ["*"]
+        apiGroups: ["*"]
+        verbs: ["*"]
+    failurePolicy: Deny    # Deny all requests if the webhook is unreachable
+    timeoutSeconds: 5

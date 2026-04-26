@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.benchmarks/
+.venv/
+venv/
+env/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Claude / agent internals
+.claude/
+CLAUDE.md
+CLAUDE_v2.md
+
+# Internal working docs (not for public repo)
+U-HAP_DELIVERBLE*.md
+U-HAP_DELTA_UPDATE.md
+U-HAP_FULL_REFERENCE.md
+U-HAP_PROJECT_PLAN.md
+U-HAP_PROJECT_PLAN_v2.md
+DELIVERBLE_CHANGES.md
+final_deliverble*.md
+final_deliverble*.pdf
+final_deliverble*_changes.md
+PROJECT_SUMMARY.md
+FULL_GUIDE.md
+HOW_TO_USE.md
+test.md
+test.pdf
+system_diagram.md
+section_iv_experimental.tex
+Deliverble/
+Deliverble*.pdf
+
+# Old / intermediate plot folder (figures/ is the public one)
+final_plots/
+
+# Archives / snapshots
+U-HAP*.zip
+
+# Old experiment iterations (v2 Keycloak, v3 drafts, graph1/2/3) — not published
+experiments/
+# paper_experiments/ is intentionally NOT ignored (public reproduction scripts)
+# but exclude generated outputs that are re-created by running the scripts
+paper_experiments/exp3_opa/policy_sets/
+paper_experiments/exp3_opa/rego_sets/
+paper_experiments/exp3_opa/plots/
+
+# Misc dumps
+output/
+eval.py
+
+# Root-level diagram sources (figures/architecture.png is the public one)
+system diagram*.png

@@ -1,0 +1,60 @@
+---
+# U-HAP sample policy — namespace: dev, resource: pods
+#
+# This policy is more permissive than prod (development environment).
+# It covers correctness scenarios S3 and S6 from the paper.
+
+namespace: dev
+resource: pods
+
+rules:
+  # RBAC — S3: alice has the 'dev' role which grants get on pods/dev
+  - type: rbac
+    role: dev
+    action: get
+
+  - type: rbac
+    role: dev
+    action: list
+
+  - type: rbac
+    role: dev
+    action: create
+
+  # RBAC — senior developers can also delete in dev
+  - type: rbac
+    role: senior-dev
+    action: delete
+
+  # Hierarchy — senior-dev inherits junior-dev's permissions in dev namespace
+  - type: hierarchy
+    parent: senior-dev
+    child: junior-dev
+
+  - type: hierarchy
+    parent: junior-dev
+    child: dev
+
+  # ACL — S6: charlie has direct ACL access to get pods/dev
+  - type: acl
+    subject: charlie
+    action: get
+
+  # ACL — CI/CD service account can create and delete pods in dev
+  - type: acl
+    subject: cicd-bot
+    action: create
+
+  - type: acl
+    subject: cicd-bot
+    action: delete
+
+  # ABAC — any engineering employee can watch pods during business hours
+  - type: abac
+    action: watch
+    predicate: "dept == 'engineering' AND time == 'business-hours'"
+
+  # Deny — protect against accidental data loss: block bulk delete from remote
+  - type: deny
+    subject: "*"
+    action: deletecollection

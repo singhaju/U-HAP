@@ -1,0 +1,106 @@
+---
+# U-HAP webhook authorizer — Kubernetes Deployment
+# Compatible with kind (Kubernetes IN Docker) for local evaluation.
+#
+# The webhook server runs on port 8443 (HTTPS). TLS certificates are
+# mounted from a Secret named "uhap-tls" (create with scripts/gen-tls.sh
+# or use cert-manager in production).
+#
+# Policy YAML files are mounted from a ConfigMap named "uhap-policies".
+# The server reads them at startup from /etc/uhap/policies.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: uhap-webhook
+  namespace: kube-system
+  labels:
+    app: uhap-webhook
+    component: authorization-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: uhap-webhook
+  template:
+    metadata:
+      labels:
+        app: uhap-webhook
+        component: authorization-webhook
+    spec:
+      serviceAccountName: uhap-webhook
+      containers:
+        - name: uhap-webhook
+          image: uhap:latest
+          imagePullPolicy: Never   # kind: use locally loaded image
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
+          env:
+            - name: UHAP_POLICY_DIR
+              value: /etc/uhap/policies
+            - name: UHAP_HOST
+              value: "0.0.0.0"
+            - name: UHAP_PORT
+              value: "8443"
+            - name: UHAP_TLS_CERT
+              value: /etc/uhap/tls/tls.crt
+            - name: UHAP_TLS_KEY
+              value: /etc/uhap/tls/tls.key
+          volumeMounts:
+            - name: tls
+              mountPath: /etc/uhap/tls
+              readOnly: true
+            - name: policies
+              mountPath: /etc/uhap/policies
+              readOnly: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8443
+              scheme: HTTPS
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+      volumes:
+        - name: tls
+          secret:
+            secretName: uhap-tls
+        - name: policies
+          configMap:
+            name: uhap-policies
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+---
+# ServiceAccount for the webhook pod
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: uhap-webhook
+  namespace: kube-system
+  labels:
+    app: uhap-webhook
