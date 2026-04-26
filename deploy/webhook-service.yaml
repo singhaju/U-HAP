@@ -1,0 +1,26 @@
+---
+# U-HAP webhook authorizer — Kubernetes Service
+#
+# ClusterIP service that exposes the webhook on port 443 (mapped to 8443
+# in the pod). The Kubernetes API server calls this service when evaluating
+# authorization decisions.
+#
+# DNS name inside the cluster: uhap-webhook.kube-system.svc.cluster.local
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: uhap-webhook
+  namespace: kube-system
+  labels:
+    app: uhap-webhook
+    component: authorization-webhook
+spec:
+  type: ClusterIP
+  selector:
+    app: uhap-webhook
+  ports:
+    - name: https
+      port: 443
+      targetPort: 8443
+      protocol: TCP

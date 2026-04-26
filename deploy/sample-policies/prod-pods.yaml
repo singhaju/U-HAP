@@ -1,0 +1,58 @@
+---
+# U-HAP sample policy — namespace: prod, resource: pods
+#
+# This policy demonstrates all five rule types supported by U-HAP.
+# It covers correctness scenarios S1, S2, S4, and S7 from the paper.
+
+namespace: prod
+resource: pods
+
+rules:
+  # ABAC — S1 / S2: alice gets pods only if on-premise AND business hours
+  - type: abac
+    action: get
+    predicate: "net == 'on-premise' AND time == 'business-hours'"
+
+  # ABAC — S4: delete is only allowed during business hours with engineering dept
+  - type: abac
+    action: delete
+    predicate: "time == 'business-hours' AND dept == 'engineering'"
+
+  # ABAC — additional get rule sharing sub-expression with delete rule above
+  - type: abac
+    action: get
+    predicate: "dept == 'engineering' AND clearance == 'top-secret'"
+
+  # RBAC — any user with role 'viewer' can get pods/prod
+  - type: rbac
+    role: viewer
+    action: get
+
+  # RBAC — 'senior-dev' inherits all permissions of 'junior-dev'
+  # (BFS traversal: senior-dev -> junior-dev -> intern)
+  - type: hierarchy
+    parent: senior-dev
+    child: junior-dev
+
+  - type: hierarchy
+    parent: junior-dev
+    child: intern
+
+  # RBAC — intern can get pods/prod (S7: dave has role senior-dev -> ALLOW)
+  - type: rbac
+    role: intern
+    action: get
+
+  # ACL — charlie has direct access to get pods/prod
+  - type: acl
+    subject: charlie
+    action: get
+
+  # Deny — explicitly block mallory from all pod operations
+  - type: deny
+    subject: mallory
+    action: get
+
+  - type: deny
+    subject: mallory
+    action: delete

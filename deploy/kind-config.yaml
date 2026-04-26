@@ -1,0 +1,53 @@
+---
+# Kind cluster configuration for U-HAP local evaluation
+#
+# Creates a single-node kind cluster with the API server configured to
+# call the U-HAP webhook authorizer.
+#
+# Usage:
+#   kind create cluster --config deploy/kind-config.yaml --name uhap
+#
+# After cluster creation:
+#   1. Build the Docker image:       docker build -t uhap:latest .
+#   2. Load it into kind:            kind load docker-image uhap:latest --name uhap
+#   3. Generate TLS certificates:    bash scripts/gen-tls.sh
+#   4. Create the TLS Secret:        kubectl apply -f deploy/tls-secret.yaml
+#   5. Create the policy ConfigMap:  kubectl create configmap uhap-policies \
+#                                      --from-file=deploy/sample-policies/ \
+#                                      -n kube-system
+#   6. Deploy the webhook:           kubectl apply -f deploy/webhook-deployment.yaml
+#                                    kubectl apply -f deploy/webhook-service.yaml
+#   7. Register the webhook:         kubectl apply -f deploy/webhook-config.yaml
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: ClusterConfiguration
+        apiServer:
+          # Enable the webhook authorizer in the authorization chain.
+          # Order: Node, RBAC, Webhook (U-HAP)
+          extraArgs:
+            authorization-mode: "Node,RBAC,Webhook"
+            authorization-webhook-config-file: /etc/kubernetes/uhap-webhook.yaml
+            authorization-webhook-cache-authorized-ttl: "0s"
+            authorization-webhook-cache-unauthorized-ttl: "0s"
+          extraVolumes:
+            - name: uhap-webhook-config
+              hostPath: /etc/kubernetes/uhap-webhook.yaml
+              mountPath: /etc/kubernetes/uhap-webhook.yaml
+              readOnly: true
+              pathType: File
+
+    # Mount the webhook kubeconfig into the API server container.
+    # The kubeconfig points to the U-HAP service inside the cluster.
+    extraMounts:
+      - hostPath: /tmp/uhap-kind/webhook-kubeconfig.yaml
+        containerPath: /etc/kubernetes/uhap-webhook.yaml
+        readOnly: true
+
+# No extra port mappings needed — the API server communicates with the
+# webhook over the cluster network (ClusterIP service).
