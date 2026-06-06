@@ -1,0 +1,17 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.nav
+*.out
+*.snm
+*.toc
+check_textheight.*
+
+# Generated exports (reproducible from source)
+slides_png/
+slides_canva.zip
+slides_uhap.pptx
+slides_uhap_final1.pdf
+
+# Large unrelated examples
+examples/XSS-Candar.pptx

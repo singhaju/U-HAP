@@ -1,0 +1,1189 @@
+% FEDAC SIIT Defense Slides — Beamer 16:9, ~15-min defense
+% Visual base: paper/_planning/template_example.pdf (formal Beamer, navy/teal/white)
+% Compile (Overleaf): pdflatex slides_fedac.tex
+%
+% Expected upload layout next to this .tex:
+%   fedac-system.png              (architecture diagram, repo root)
+%   figs/g1_verification.pdf
+%   figs/g2_issuance.pdf
+%   figs/g3_governance.pdf
+%   figs/g4_per_tier.pdf
+%   figs/g5_throughput.pdf
+%   figs/g6_revocation.pdf
+%   figs/g7_cumulative.pdf
+%   figs/g10_oid_scaling.pdf
+%   figs/g11_auth_authz.pdf
+
+\documentclass[aspectratio=169,11pt]{beamer}
+
+% ── Theme reset ─────────────────────────────────────────────────────────────
+\usetheme{default}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+
+% ── Packages ────────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\IfFileExists{lmodern.sty}{\usepackage{lmodern}}{}
+\usepackage[utf8]{inputenc}
+\usepackage[expansion=false]{microtype}
+\usepackage[table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{calc,positioning,backgrounds,shapes.geometric}
+\usepackage{tcolorbox}
+\tcbuselibrary{skins}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{makecell}
+\usepackage{amsmath,amssymb}
+
+% ── FEDAC palette (matches template_example.pdf exactly) ────────────────────
+\definecolor{fedacNavy}{HTML}{0E2A4A}
+\definecolor{fedacNavyD}{HTML}{081A30}
+\definecolor{fedacTeal}{HTML}{1FA8A0}
+\definecolor{fedacTealD}{HTML}{15807A}
+\definecolor{fedacPink}{HTML}{FCE3E5}
+\definecolor{fedacPinkBorder}{HTML}{E63946}
+\definecolor{fedacGray}{HTML}{F4F4F4}
+\definecolor{fedacGrayD}{HTML}{555E6B}
+
+% ── Sans-serif throughout (drops the Canva italic-serif look) ───────────────
+\renewcommand{\familydefault}{\sfdefault}
+
+% ── Beamer colors ───────────────────────────────────────────────────────────
+\setbeamercolor{normal text}{fg=fedacNavyD}
+\setbeamercolor{frametitle}{fg=white,bg=fedacNavy}
+\setbeamercolor{title}{fg=white}
+\setbeamercolor{subtitle}{fg=fedacTeal}
+\setbeamercolor{itemize item}{fg=fedacTeal}
+\setbeamercolor{itemize subitem}{fg=fedacTeal}
+\setbeamercolor{itemize subsubitem}{fg=fedacTeal}
+\setbeamerfont{frametitle}{size=\Large,series=\bfseries}
+\setbeamerfont{itemize/enumerate body}{size=\small}
+\setbeamerfont{itemize/enumerate subbody}{size=\footnotesize}
+
+\setbeamertemplate{itemize item}{\color{fedacTeal}\textbullet}
+\setbeamertemplate{itemize subitem}{\color{fedacTeal}\textbullet}
+\setbeamertemplate{itemize subsubitem}{\color{fedacTeal}\textendash}
+\newcommand{\tightitems}{%
+  \setlength{\topsep}{2pt}%
+  \setlength{\itemsep}{4pt}%
+  \setlength{\parsep}{0pt}%
+}
+\newenvironment{plainsteps}{%
+  \begin{list}{}{%
+    \setlength{\leftmargin}{24pt}%
+    \setlength{\topsep}{2pt}%
+    \setlength{\itemsep}{3pt}%
+    \setlength{\parsep}{0pt}%
+  }%
+}{\end{list}}
+
+% ── Frame title bar (no underline; bold dark navy on white) ─────────────────
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \vskip 0.35cm
+  \begin{beamercolorbox}[wd=\paperwidth,ht=1.2cm,dp=0cm,leftskip=0.55cm,sep=0pt]{frametitle}
+    \vbox to 1.2cm{\vfil\usebeamerfont{frametitle}\insertframetitle\vfil}%
+  \end{beamercolorbox}%
+}
+
+% ── Footer bar (navy with white text + page count) ──────────────────────────
+\setbeamercolor{footer}{bg=fedacNavy,fg=white}
+\setbeamertemplate{footline}{%
+  \leavevmode
+  \begin{beamercolorbox}[wd=\paperwidth,ht=0.5cm,dp=0.3cm,leftskip=0.5cm,rightskip=0.5cm,sep=0pt]{footer}
+    \color{white}\footnotesize\strut FEDAC: Federated Dynamic Access Control for Kubernetes
+    \hfill
+    \color{white}\footnotesize\strut\insertframenumber\,/\,\inserttotalframenumber
+  \end{beamercolorbox}%
+}
+
+% ── Callout box (navy header strip / white body) ────────────────────────────
+\newtcolorbox{callout}[2][]{%
+  enhanced,
+  colback=white,
+  colframe=fedacNavy!18,
+  coltitle=white,
+  colbacktitle=fedacNavy,
+  fonttitle=\bfseries\small,
+  fontupper=\small,
+  arc=1.5mm,outer arc=1.5mm,
+  boxrule=0.4pt,titlerule=0pt,
+  left=5pt,right=5pt,top=4pt,bottom=4pt,
+  title={#2},#1
+}
+
+% ── Pink banner (Goal / takeaway strip) ─────────────────────────────────────
+\newcommand{\pinkbanner}[1]{%
+  \begin{center}
+  \begin{tcolorbox}[colback=fedacGray,colframe=fedacGray,
+                    boxrule=0pt,arc=1mm,left=10pt,right=10pt,top=3pt,bottom=3pt,
+                    width=0.96\linewidth,
+                    borderline west={2pt}{0pt}{fedacTeal}]
+  \footnotesize\color{fedacNavyD}#1
+  \end{tcolorbox}
+  \end{center}}
+
+% ── Pink pill (Inv N) — inline-sized rounded rectangle ──────────────────────
+\newcommand{\invpill}[1]{%
+  \tcbox[colback=fedacPink,colframe=fedacPinkBorder,boxrule=0.3pt,arc=1.5mm,
+         left=4pt,right=4pt,top=1pt,bottom=1pt,on line,nobeforeafter]{%
+    \footnotesize\color{fedacNavyD}\textbf{#1}}%
+}
+
+% ── Title-slide and divider backgrounds ─────────────────────────────────────
+\newcommand{\titleBg}{%
+  \begin{tikzpicture}[overlay,remember picture]
+    \fill[fedacNavy] (current page.south west) rectangle (current page.north east);
+    \fill[fedacTeal]
+      ([xshift=-1.6cm,yshift=-0cm]current page.north east) circle (1.85cm);
+    \fill[fedacNavy]
+      ([xshift=-0.05cm,yshift=0cm]current page.north east) circle (1.85cm);
+  \end{tikzpicture}%
+}
+\newcommand{\dividerBg}{%
+  \begin{tikzpicture}[overlay,remember picture]
+    \fill[fedacNavy] (current page.south west) rectangle (current page.north east);
+    \fill[fedacTeal]
+      ([xshift=-1.5cm,yshift=-0.5cm]current page.north east)
+      rectangle ++(0.85cm,0.85cm);
+  \end{tikzpicture}%
+}
+
+% ── Architecture image with optional red highlight overlay ──────────────────
+% The image (fedac-system.png) is 8.5×4.8 in our reference; we draw a TikZ
+% rectangle on top in normalised image coordinates [0,1]×[0,1].
+\newcommand{\archImageBox}[1]{%
+  \begin{tikzpicture}
+    \node[anchor=south west,inner sep=0pt] (arch) at (0,0)
+      {\includegraphics[width=0.66\textwidth]{fedac-system.png}};
+    #1
+  \end{tikzpicture}%
+}
+% Helper: red rectangle from (xa,ya) to (xb,yb) in normalised image coords
+\newcommand{\archHL}[4]{%
+  \draw[fedacPinkBorder,line width=1.4pt,rounded corners=1pt,
+        opacity=0.95]
+    ($(arch.south west)!#1!(arch.south east)$)
+      ++(0,#2*5cm)
+    rectangle
+    ($(arch.south west)!#3!(arch.south east)$)
+      ++(0,#4*5cm);
+}
+
+% ── Where to find figures (covers both flat and figs/ subdir) ───────────────
+\graphicspath{{figs/}{./}{../}{../../figs/}{../../}}
+
+% ── Document metadata ───────────────────────────────────────────────────────
+\title{FEDAC: Scalable Federated Dynamic Access Control for Kubernetes}
+\subtitle{Privacy-preserving authorization and verifiable governance}
+\author{Krittapak Jairak \and Singha Junchan \and Phisitphon Pruksorranan}
+
+\begin{document}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 1. TITLE
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[plain,noframenumbering]
+\titleBg
+\vspace{1.0cm}\hspace{0.4cm}%
+\begin{minipage}{0.92\paperwidth}
+{\fontsize{34pt}{38pt}\selectfont\bfseries\color{white}FEDAC}\\[18pt]
+{\fontsize{15pt}{18pt}\selectfont\bfseries\color{white}Scalable Federated Dynamic Access Control}\\
+{\fontsize{15pt}{18pt}\selectfont\bfseries\color{white}for Kubernetes}\\[8pt]
+{\fontsize{11pt}{13pt}\selectfont\color{fedacTeal}Privacy-preserving authorization and verifiable governance}\\[26pt]
+{\small\color{white}Krittapak Jairak\quad\quad Singha Junchan\quad\quad Phisitphon Pruksorranan}\\[4pt]
+{\small\color{white}Advisor: Dr.\ Somchart Fugkeaw}\\[10pt]
+{\small\color{white}School of ICT, SIIT, Thammasat University}
+\end{minipage}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 2. INTRODUCTION & MOTIVATION
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Introduction and Motivation}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.45\textwidth}
+{\large\bfseries\color{fedacNavyD}Federated Kubernetes}\\
+{\footnotesize\color{fedacGrayD}turns IAM into a per-service, cross-domain}\\[10pt]
+\includegraphics[width=5.5cm]{figs/Tra_K8s.png}
+\end{column}
+\begin{column}{0.55\textwidth}
+\begin{itemize}\tightitems
+\item The increased spans of the Kubernetes environment 
+%Multi-cluster applications cross namespaces, tenants, and administrative domains.
+\item The broad reach of single authenticated sessions 
+%A single authenticated session may touch low-risk dashboards and high-impact deployment operations.
+\item The cross-domain privacy preservation
+% Privacy-preserving identity handling must prevent cross-domain correlation.
+\item The direct impact of authorization on tail latency
+% Sidecars see every request, so authorization latency directly affects tail latency.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 3. PROBLEM STATEMENT
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Problem Statement}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Hot-path latency}
+Per-request policy fetch \& eval adds \textbf{tens of ms} tail latency to every microservice call.
+\end{callout}\vspace{4pt}
+\begin{callout}{Unverifiable policy governance}
+No tamper-evident audit mechanism to detect or enforce policy changes across domains.
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Inefficient authn / authz pipeline}
+No unified authn/authz pipeline scales across heterogeneous, multi-domain K8s clusters.
+\end{callout}\vspace{4pt}
+\begin{callout}{Lack of privacy-preserving identity}
+Persistent identity exposure across services enables cross-domain tracking \& profiling.
+\end{callout}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 4. OUR SOLUTION — FEDAC
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Our Solution: FEDAC}
+\vspace{0pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{\textwidth}
+\footnotesize
+\begin{itemize}
+  \setlength{\topsep}{1pt}\setlength{\itemsep}{6pt}\setlength{\parsep}{0pt}
+  \item \textbf{Hub-and-spoke IAM} — Hub reasons policy centrally%; sidecars enforce O(1) locally with no per-request policy fetch.
+  \item \textbf{Risk-adaptive auth (T1–T4)} — selected auth type per service sensitivity%T1 SSO $\to$ T2 MFA $\to$ T3 context-risk $\to$ T4 ZKP, selected per service sensitivity; partial failure denies only failing services.
+  \item \textbf{Privacy-preserving identity} — Session-scoped pseudonymous UIDs bound per OID set%; cross-domain correlation impossible.
+  \item \textbf{Authorization-as-Result (AaR)} — Auth decision baked into a short-lived, service-scoped token%; O(1) in-process sidecar verify.
+  \item \textbf{Merkle-anchored governance} — Policies on IPFS%; integrity anchored on-chain. Incremental $O(\log N)$ updates.
+  \item \textbf{Targeted revocation} — Only tokens whose OID set intersects the changed policy are invalidated%; all others stay valid.
+\end{itemize}
+\end{column}
+% \begin{column}{0.50\textwidth}
+% {\small\bfseries\color{fedacNavyD}Five Design Invariants}\\[4pt]
+% \scriptsize
+% \setlength{\tabcolsep}{4pt}
+% \renewcommand{\arraystretch}{1.3}
+% \begin{tabular}{>{\bfseries}p{0.6cm} p{4.6cm}}
+% \toprule
+% \rowcolor{fedacGray}Inv & Guarantee\\
+% \midrule
+% I1 & Sidecar verify is O(1), in-process, no network call\\
+% I2 & Token renewal uses baked conditions — no IPFS/chain access\\
+% I3 & Policy governance is $O(\log N)$ incremental Merkle\\
+% I4 & Revocation targets OID intersection only\\
+% I5 & All policy conditions are baked at issuance; sidecars are stateless\\
+% \bottomrule
+% \end{tabular}
+% \vspace{8pt}
+% \pinkbanner{FEDAC is the only scheme covering all 7 functional dimensions: authentication, authorization, privacy, governance, renewal, revocation, and federation.}
+% \end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 5. THREAT MODEL & ACTORS
+% ════════════════════════════════════════════════════════════════════════════
+% \begin{frame}{Threat Model and Actors}
+% \vspace{2pt}
+% \begin{columns}[T,onlytextwidth]
+% \begin{column}{0.50\textwidth}
+% \begin{itemize}\tightitems
+% \item \textbf{Control Hub:} trusted policy reasoning and token issuance.
+% \item \textbf{Spoke sidecars:} honest-but-curious local enforcement.
+% \item \textbf{IPFS:} untrusted policy storage; integrity verified by Merkle proof.
+% \item \textbf{Blockchain:} tamper-evident root 
+% \end{itemize}
+% \end{column}
+% \begin{column}{0.48\textwidth}
+% \vspace{-0.5cm}
+% \begin{callout}{Adversary scenarios}
+% \footnotesize
+% \begin{itemize}\tightitems
+% \item Stale-token replay after expiry or revocation.
+% \item Malicious tenant lateral movement across service OIDs.
+% \item Cross-domain identity correlation by curious spokes.
+% \item Policy tampering by a compromised storage node or admin.
+% \item Token renewal forgery using an intercepted AaR token.
+% \end{itemize}
+% \end{callout}
+% \end{column}
+% \end{columns}
+% \end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 6. SYSTEM ARCHITECTURE
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{System Architecture}
+\vspace{-2pt}
+\centering
+\includegraphics[width=0.82\textwidth]{fedac-system.png}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 7. LAYER 1 — IDENTITY FEDERATION (P1–P3)
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Layer 1: Identity Federation Layer}
+\begin{columns}[c,onlytextwidth] % <-- change T → c
+
+\begin{column}{0.55\textwidth}
+\vfill
+\centering
+\includegraphics[width=8cm]{figs/layer1.png}
+\vfill
+\end{column}
+
+\begin{column}{0.42\textwidth}
+\begin{itemize}\tightitems
+\item \textbf{P1:} OID-classified multi-resource request received at the Hub; security tier derived per service.
+\item \textbf{P2:} Dynamic Authentication Manager selects tier per OID: T1 SSO $\to$ T2 MFA $\to$ T3 context-risk $\to$ T4 ZKP. Each tier executes independently; partial auth denies only failing services.
+\item \textbf{P3:} Identity normalization — context-bound pseudonymous UID derived from session nonce; prevents cross-domain correlation.
+\end{itemize}
+\end{column}
+
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 8. LAYER 2 — POLICY GOVERNANCE (P4)
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Layer 2: Policy Governance Layer}
+\vspace{-0.2cm}
+\begin{columns}[c,onlytextwidth] % T → c
+
+\begin{column}{0.55\textwidth}
+\vfill
+\centering
+\includegraphics[width=8cm]{figs/layer2.png}
+\vfill
+\end{column}
+
+\begin{column}{0.42\textwidth}
+\scriptsize
+\begin{itemize}\tightitems
+\item \textbf{P4:} Policy Engine fetches policies from IPFS via content-addressed CID.
+\item Merkle Tree hashes leaves; Validation Engine checks recomputed root against the on-chain anchor.
+\item No policy consumed without a valid Merkle proof — tamper-evident by construction.
+\item Three smart contracts: root registry, UID-to-policy map, token audit log.
+\end{itemize}
+\end{column}
+
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 9. LAYER 3 — AUTHORIZATION & ENFORCEMENT (P5–P8)
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Layer 3: Authorization and Enforcement Layer}
+\vspace{-0.3cm}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.55\textwidth}
+\centering{\includegraphics[width=8cm]{figs/layer3.png}}
+\end{column}
+
+\begin{column}{0.42\textwidth}
+\scriptsize
+\begin{itemize}\tightitems
+\item \textbf{P5:} AaR token — Ed25519 signed, AES-256-GCM encrypted, scoped to OID + allowed ops.
+\item \textbf{P6:} Sidecar verifies in-process — O(1). No IPFS, no chain, no policy fetch on hot path.
+\item \textbf{P7:} Token Extender renews from baked conditions; no IPFS or blockchain (Inv.~2).
+\item \textbf{P8:} OID-intersection revocation on policy update; unaffected tokens stay valid. $O(\log N)$ Merkle (Inv.~3).
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 10. SECTION DIVIDER — EXPERIMENT & EVALUATION
+% ════════════════════════════════════════════════════════════════════════════
+{\setbeamertemplate{footline}{}
+\begin{frame}[plain,noframenumbering]
+\dividerBg
+\vbox to \textheight{\vfil
+  \hbox to \textwidth{\hfil
+    \fontsize{30pt}{34pt}\selectfont\bfseries\color{white}Experiment \& Evaluation\hfil}%
+  \vfil}
+\end{frame}}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 11. TABLE III — FEATURE COMPARISON
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Feature Comparison}
+\vspace{4pt}
+\centering
+\footnotesize
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{l c c c c}
+\toprule
+\rowcolor{fedacGray}\textbf{Feature} & \textbf{Femminella} & \textbf{ZKP-CapBAC} & \textbf{Atalay} & \textbf{FEDAC}\\
+\midrule
+F1 Hub-and-spoke IAM            & $\circ$ & $\times$  & $\circ$ & $\checkmark$\\
+F2 Risk-adaptive MFA            & $\times$& $\times$  & $\times$& $\checkmark$\\
+F3 Privacy-preserving auth      & $\times$& $\checkmark$ & $\times$& $\checkmark$\\
+F4 AaR + edge enforcement       & $\times$& $\circ$  & $\circ$ & $\checkmark$\\
+F5 Tamper-evident governance    & $\times$& $\checkmark$ & $\times$& $\checkmark$\\
+F6 Policy-governed Token renewal      & $\times$& $\times$  & $\times$& $\checkmark$\\
+F7 Targeted revocation          & $\times$& $\circ$  & $\times$& $\checkmark$\\
+\midrule
+\textbf{Coverage} & 0.5/7 & 3/7 & 1/7 & \textbf{7/7}\\
+\bottomrule
+\end{tabular}\\[6pt]
+\pinkbanner{FEDAC is the only evaluated scheme covering the full governance--renewal--revocation lifecycle}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 12. TABLE IV — COMPUTATION COST
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Computation Cost}
+\vfill
+\centering
+\tiny
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.24}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{p{2.5cm}p{3.0cm}p{3.0cm}p{3.0cm}p{4.0cm}}
+\toprule
+\rowcolor{fedacGray}\textbf{Operation} & \textbf{Femminella} & \textbf{ZKP-CapBAC} & \textbf{Atalay} & \textbf{FEDAC}\\
+\midrule
+Authentication      & $T_{\mathrm{ver}} {+} T_{\mathrm{abe\_d}}$
+                    & $T_{\mathrm{zkp\_v}} {+} T_{bc}$
+                    & $2T_{\mathrm{sig}}^{\mathrm{RSA}} {+} 2T_{\mathrm{ver}}^{\mathrm{RSA}} {+} T_{\mathrm{rtt}}$
+                    & \makecell[l]{\textbf{T1:} $T_{\mathrm{ver}} {+} T_h$\\
+                                     \textbf{T2:} $T_{\mathrm{hmac}}$\\
+                                     \textbf{T3:} $k{\cdot}T_h$\\
+                                     \textbf{T4:} $T_{\mathrm{zkp\_p}} {+} T_{\mathrm{zkp\_v}}$}\\
+Policy evaluation   & $T_{\mathrm{abe\_d}} {+} k{\cdot}T_h {+} T_{\mathrm{rtt}}$
+                    & $T_{\mathrm{zkp\_v}} {+} T_{bc}$
+                    & $T_{\mathrm{rtt}}$
+                    & $m{\cdot}(k{\cdot}T_h)$ batched at Hub\\
+Token issuance      & $T_{\mathrm{abe\_kg}}$
+                    & $T_{\mathrm{zkp\_p}} {+} T_{bc}$
+                    & $T_{\mathrm{sig}}^{\mathrm{RSA}}$
+                    & $T_{\mathrm{sig}} {+} T_{\mathrm{sym}} {+} T_h$\\
+Token verification  & $T_{\mathrm{rtt}} {+} T_{\mathrm{abe\_d}}$
+                    & $T_{\mathrm{zkp\_p}} {+} T_{\mathrm{zkp\_v}} {+} T_{bc}$
+                    & $T_{\mathrm{ver}}^{\mathrm{RSA}} {+} T_{\mathrm{rtt}}$
+                    & $T_{\mathrm{ver}} {+} T_h$ local sidecar\\
+Token renewal       & N/A
+                    & $T_{\mathrm{zkp\_v}} {+} T_{bc}$
+                    & N/A
+                    & \makecell[l]{\textbf{T1:} $T_{\mathrm{ver}} {+} T_{\mathrm{sig}}$\\
+                                     \textbf{T2:} $T_{\mathrm{ver}} {+} T_{\mathrm{hmac}} {+} T_{\mathrm{sig}}$\\
+                                     \textbf{T3:} $T_{\mathrm{ver}} {+} kT_h {+} T_{\mathrm{sig}}$\\
+                                     \textbf{T4:} $T_{\mathrm{ver}} {+} T_{\mathrm{zkp\_v}} {+} T_{\mathrm{sig}}$}\\
+Policy governance   & $N{\cdot}T_{\mathrm{abe\_e}}$
+                    & $T_{\mathrm{zkp\_p}} {+} T_{bc}$
+                    & N/A
+                    & $\log(N){\cdot}T_h$ incremental\\
+Revocation          & $T_{\mathrm{abe\_e}} {+} T_{\mathrm{rtt}}$
+                    & $T_{\mathrm{zkp\_v}} {+} T_{bc}$
+                    & N/A
+                    & $\log(N){\cdot}T_h {+} T_{\mathrm{sig}}$ targeted\\
+\bottomrule
+\end{tabular}}\\[6pt]
+\begin{callout}{Cost implication}
+FEDAC confines slow policy retrieval and Merkle verification to issuance; the per-request sidecar
+path is one Ed25519 verify plus one SHA-256 hash.
+\end{callout}
+\vfill
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 13. EXPERIMENT ENVIRONMENT
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Experiment Environment}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Cluster and implementation}
+\begin{itemize}\tightitems
+\item AWS EKS, \texttt{t3.large} nodes, Kubernetes 1.29.
+\item Go 1.22 Hub and Sidecar; Rust 1.79 ZKP verifier.
+\item IPFS Kubo + local EVM anchoring for governance.
+\end{itemize}
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Workload and statistics}
+\begin{itemize}\tightitems
+\item k6 v0.50: 30 s warm-up, 120 s sustained.
+\item Comparators: Femminella, ZKP-CapBAC, Atalay JWT.
+\item Median of five independent runs; two-tailed Mann--Whitney $U$ tests.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\vspace{4pt}
+\pinkbanner{$\alpha=0.05$; all five headline pairwise comparisons significant ($p \le 0.046$, Holm-Bonferroni corrected)}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 13b. EVALUATION DIVIDER
+% ════════════════════════════════════════════════════════════════════════════
+{\setbeamertemplate{footline}{}
+\begin{frame}[plain,noframenumbering]
+\dividerBg
+\vbox to \textheight{\vfil
+  \hbox to \textwidth{\hfil
+    \fontsize{30pt}{34pt}\selectfont\bfseries\color{white}Evaluation\hfil}%
+  \vskip 10pt
+  \hbox to \textwidth{\hfil
+    \large\color{white!85!black}Workloads W1--W6\enspace\textbullet\enspace Graphs G1--G11\hfil}%
+  \vfil}
+\end{frame}}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 14. LATENCY RESULTS — G1 + G2
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Latency Results}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=\linewidth]{g1_verification.pdf}\\[2pt]
+{\footnotesize Sidecar verification — p50 / p95 / p99 (W1)}
+\end{column}
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=\linewidth]{g2_issuance.pdf}\\[2pt]
+{\footnotesize AaR token issuance — five-phase pipeline (W2)}
+\end{column}
+\end{columns}
+\vspace{4pt}
+\pinkbanner{FEDAC verify p50/p95/p99: 4.60 / 18.86 / 29.58 ms (EKS) — 2nd lowest after Atalay (0.48\,ms JWT-only, 1/7 features).
+Issuance p50: 349\,ms — one-time bake; verify is the per-request hot path.}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 15. PER-TIER & AUTH-AUTHZ DECOMPOSITION — G4 + G11
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Per-Tier and Auth/Authz Decomposition}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=\linewidth]{g4_per_tier.pdf}\\[2pt]
+{\footnotesize Per-tier breakdown T1--T4 (W2)}
+\end{column}
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=\linewidth]{g11_auth_authz.pdf}\\[2pt]
+{\footnotesize Auth and authz cost split per scheme}
+\end{column}
+\end{columns}
+\vspace{4pt}
+\pinkbanner{G4: issuance post-auth (id\_norm 9\,ms + policy\_eval 297\,ms + token\_issue 6\,ms = 312\,ms) is constant across all tiers.
+G11: per-request authz is a flat 35.3\,ms regardless of tier — enforcement cost is fully decoupled from authentication complexity.}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 16. THROUGHPUT & OID SCALING — G5 + G10
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Scaling and Throughput}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=0.94\linewidth]{g5_throughput.pdf}\\[1pt]
+{\scriptsize Throughput vs.\ concurrent clients (W1)}
+\end{column}
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=0.94\linewidth]{g10_oid_scaling.pdf}\\[1pt]
+{\scriptsize Issuance vs.\ number of services per request}
+\end{column}
+\end{columns}
+\vspace{3pt}
+\pinkbanner{FEDAC: 1{,}597 rps peak --- $4\times$ ZKP-CapBAC, $42\times$ Femminella, among schemes with full lifecycle coverage.
+Atalay peaks at ${\approx}20{,}000$ rps via JWT-only verify (1/7 features; no governance, renewal, or revocation).}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 17. CUMULATIVE SESSION — G7
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Cumulative Session Latency}
+\begin{columns}[c,onlytextwidth] 
+
+% LEFT: Image
+\begin{column}{0.55\textwidth}
+\vfill
+\centering
+\includegraphics[width=\textwidth]{g7_cumulative.pdf}
+\vfill
+\end{column}
+
+% RIGHT: Text
+\begin{column}{0.43\textwidth}
+\tiny
+\begin{itemize}\tightitems
+\item Local-bench p50. FEDAC initial cost ${\approx}$10\,ms (local); each subsequent verify ${\approx}$0.70\,ms. EKS: issuance 349\,ms; FEDAC–Femminella crossover at $N{\approx}8$ requests.
+\item Femminella: ${\approx}$1.41\,s per request; ${\approx}$705\,s cumulative at $N{=}500$.
+\item ZKP-CapBAC: 0.344\,s per request (dotted beyond $N{=}100$: extrapolated).
+\item Atalay lowest overall (JWT-only, 1/7 features); FEDAC lowest among lifecycle-capable schemes.
+\end{itemize}
+\end{column}
+
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 18. GOVERNANCE SCALING & REVOCATION — G3 + G6
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Governance Scaling and Revocation Propagation}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=\linewidth]{g3_governance.pdf}\\[2pt]
+{\footnotesize Policy-update cost vs.\ $N$ (W5, log--log)}
+\end{column}
+\begin{column}{0.50\textwidth}
+\centering\includegraphics[width=\linewidth]{g6_revocation.pdf}\\[2pt]
+{\footnotesize Revocation propagation CDF (W6, 10 sidecars)}
+\end{column}
+\end{columns}
+\vspace{4pt}
+\pinkbanner{Governance: $O(\log N)$ Merkle update $\approx$4\,$\mu$s at $N{=}10^5$; 36--155$\times$ lower than Femminella OPA bundle recompile.
+Revocation: p50 1{,}944\,ms to 10 sidecars, no chain write; zero cross-contamination (Invariant~4).}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 19. DEMO
+% ════════════════════════════════════════════════════════════════════════════
+{\setbeamertemplate{footline}{}
+\begin{frame}[plain,noframenumbering]
+\dividerBg
+\vbox to \textheight{\vfil
+  \hbox to \textwidth{\hfil
+    \fontsize{30pt}{34pt}\selectfont\bfseries\color{white}Live demo\hfil}%
+  \vfil}
+\end{frame}}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 20. CONTRIBUTIONS
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Contributions}
+\vspace{6pt}
+\scriptsize
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{2}
+\centering
+\begin{tabular}{p{3.4cm} c p{7.2cm}}
+\toprule
+\rowcolor{fedacGray}\textbf{Member} & \textbf{Share} & \textbf{Responsibilities}\\
+\midrule
+Krittapak Jairak       & 30\% & Research design and methodology; system model design; presentation; peer review and revision\\
+Singha Junchan         & 40\% & Research design and methodology; experimental implementation; interpretation of results\\
+Phisitphon Pruksorranan & 30\% & Research design; literature review; writing the paper; presentation; peer review and revision\\
+\bottomrule
+\end{tabular}
+\vspace{14pt}
+
+\centering{\scriptsize\color{fedacGrayD}Advisor: Dr.~Somchart Fugkeaw --- School of ICT, SIIT, Thammasat University}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 21. CONCLUSION
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Conclusion}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Separate expensive from cheap}
+\tiny
+Authorization reasoning is costly — policy retrieval, Merkle verification, identity normalization. FEDAC does this \emph{once}, at the Hub, at issuance. Every subsequent request pays only for a local cryptographic check — no network, no re-evaluation.
+\end{callout}\vspace{2pt}
+\begin{callout}{Make the decision portable}
+\tiny
+The AaR token carries the authorization decision itself — not a reference to it. A sidecar that loses connectivity still enforces correctly. Renewal re-reads conditions baked into the token, not from IPFS.
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Keep governance tamper-evident}
+\tiny
+Every policy is a Merkle leaf anchored on-chain. Any modification — accidental or adversarial — is detected before the policy is consumed. Revocation targets only the OID intersection: no legitimate token is ever invalidated by a policy change it is not subject to.
+\end{callout}\vspace{2pt}
+\begin{callout}{Scope everything to the service}
+\tiny
+Identity, capability, and revocation are all scoped to the specific service being accessed. The same user has cryptographically unlinkable identities across services. A compromised service cannot escalate to another.
+\end{callout}
+\end{column}
+\end{columns}
+% \vspace{3pt}
+% \pinkbanner{Fine-grained authorization should not be a performance tax. FEDAC proves it does not have to be.}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 22. Q&A DIVIDER
+% ════════════════════════════════════════════════════════════════════════════
+{\setbeamertemplate{footline}{}
+\begin{frame}[plain,noframenumbering]
+\dividerBg
+\vbox to \textheight{\vfil
+  \hbox to \textwidth{\hfil
+    \fontsize{34pt}{38pt}\selectfont\bfseries\color{white}Questions?\hfil}%
+  \vskip 14pt
+  \hbox to \textwidth{\hfil
+    \large\color{white!85!black}Thank you for your attention.\hfil}%
+  \vfil}
+\end{frame}}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B1. BACKUP — MANN--WHITNEY DETAIL
+% ════════════════════════════════════════════════════════════════════════════
+{\setbeamertemplate{footline}{}
+\begin{frame}[noframenumbering]{Backup: Mann--Whitney Detail}
+\centering\vspace{6pt}
+\footnotesize
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{l c c}
+\toprule
+\rowcolor{fedacGray}\textbf{Comparison} & \textbf{Runs} & \textbf{p-value}\\
+\midrule
+FEDAC vs Femminella, verify    & $n=5$ & $\le 0.046$\\
+FEDAC vs ZKP-CapBAC, verify    & $n=5$ & $\le 0.046$\\
+FEDAC vs Atalay, verify        & $n=5$ & $\le 0.046$\\
+FEDAC vs Femminella, issuance  & $n=5$ & $\le 0.046$\\
+FEDAC vs ZKP-CapBAC, issuance  & $n=5$ & $\le 0.046$\\
+\bottomrule
+\end{tabular}\\[10pt]
+{\footnotesize\color{fedacGrayD}Two-tailed Mann--Whitney $U$ tests, Holm-Bonferroni corrected; maximum reported p-value is 0.046 across the five headline comparisons ($\alpha{=}0.05$).}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B2. BACKUP — PHASE 5 SIDECAR VERIFY
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Phase 6 Sidecar Verify (Edge Enforcement)}
+\vspace{4pt}
+\begin{callout}{Algorithm sketch}
+\small
+\begin{plainsteps}
+\item \textbf{1.} Parse incoming \texttt{Authorization: Bearer} AaR token.
+\item \textbf{2.} Verify Ed25519 signature using the Hub public key.
+\item \textbf{3.} Decrypt private payload with AES-256-GCM.
+\item \textbf{4.} Check expiry and audience OID against the receiving service.
+\item \textbf{5.} Check requested operation against baked allowed-ops.
+\item \textbf{6.} Forward on success; return HTTP 403 on failure.
+\end{plainsteps}
+\end{callout}
+\vspace{4pt}
+\pinkbanner{All checks are in-process; no IPFS, no blockchain, no policy server.}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B3. BACKUP — CALIBRATION DISCLOSURES
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Calibration Disclosures}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Critical}
+\begin{itemize}\tightitems
+\item Comparator calibration gaps are disclosed.
+\item ZKP-CapBAC uses Poseidon headline variant.
+\item Femminella AW11 implementation status is noted.
+\item Hardware / testbed source mapping is explicit.
+\end{itemize}
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Major / minor}
+\begin{itemize}\tightitems
+\item Renewal reproducibility footnote.
+\item Mann--Whitney medians vs.\ EKS headline caveat.
+\item Atalay JWT-only throughput marking.
+\item Bootstrap CI and IQR reporting.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[noframenumbering]{Backup: Limitations and Scope}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Evaluation scope}
+\begin{itemize}\tightitems
+\item Main cluster results are from single-region AWS EKS.
+\item Federation is evaluated through service/OID diversity, not full cross-region hub federation.
+\item Tier-4 ZKP timing is calibrated from local benchmark hardware.
+\end{itemize}
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Operational scope}
+\begin{itemize}\tightitems
+\item First issuance remains the expensive path: 349 ms p50.
+\item HSM-backed keys and durable OIDC persistence are design-ready, not on the hot-path benchmark.
+\item Best fit: repeated requests under reusable AaR tokens.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\vspace{4pt}
+\pinkbanner{FEDAC's claim is practical hot-path enforcement; deployment hardening and wider federation remain future work.}
+\end{frame}
+
+\begin{frame}[noframenumbering]{Backup: Security Properties}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Token and policy}
+\begin{itemize}\tightitems
+\item \textbf{AaR unforgeability:} reduced to Ed25519 signature unforgeability.
+\item \textbf{Tamper evidence:} IPFS policies are checked against blockchain-anchored Merkle roots.
+\item \textbf{Replay resistance:} expiry, audience OID, and allowed operations are checked locally.
+\end{itemize}
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Identity and trust}
+\begin{itemize}\tightitems
+\item \textbf{Unlinkability:} context-bound UIDs avoid cross-service identity correlation.
+\item \textbf{Sidecar model:} honest-but-curious sidecars enforce baked claims.
+\item \textbf{Compromise response:} affected OIDs can be quarantined or revoked without global logout.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}[noframenumbering]{Backup: Renewal and Revocation Path}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Renewal}
+\begin{itemize}\tightitems
+\item Renewal rules are embedded in the encrypted AaR payload.
+\item Token Extender checks eligibility and continuity proof.
+\item Renewal avoids fresh IPFS and blockchain access; reported p50 is 2.34 ms.
+\end{itemize}
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Revocation}
+\begin{itemize}\tightitems
+\item Policy updates are mapped to affected OID sets.
+\item Only tokens intersecting changed or compromised OIDs are invalidated.
+\item Propagation is bounded mainly by polling; reported p50 is 1.94 s to 10 sidecars.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\vspace{4pt}
+\pinkbanner{Renewal is local for speed; revocation is targeted for lower disruption.}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B7. BACKUP — AaR TOKEN ANATOMY
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: AaR Token Anatomy}
+\vspace{-6pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.50\textwidth}
+\begin{callout}{Public claims (plaintext)}
+\tiny
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{>{\ttfamily}l p{3.6cm}}
+uid   & OID-scoped UID; cross-service unlinkable \\
+aud   & $\mathbf{OID}$ — exact service set for this token \\
+act   & $\mathbf{Cap}$ — per-service allowed operations \\
+exp   & expiry timestamp \\
+\end{tabular}
+\end{callout}
+\vspace{1.5pt}
+\begin{callout}{Encrypted private payload (AES-256-GCM)}
+\tiny
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{>{\ttfamily}l p{3.6cm}}
+UID, OID, Cap, Tier\_auth & full authorization context \\
+issued\_at     & issuance timestamp \\
+$C_{user}$     & T4 ZKP commitment ($\emptyset$ for T1--T3) \\
+baked\_cond    & time/network/risk constraints \\
+Renewal        & extendable, max\_ext, max\_lifetime, zkp\_strict \\
+\end{tabular}
+\end{callout}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{callout}{Final construction}
+\scriptsize
+\[
+AaR = \mathcal{S}_{\mathrm{Ed25519}}\!\left(
+  Claims_{pub} \;\|\; \mathcal{E}_{\mathrm{AES}}\!(K_{sym}, Payload_{priv})
+\right)
+\]
+
+\begin{itemize}
+  \setlength{\topsep}{1pt}\setlength{\itemsep}{2pt}\setlength{\parsep}{0pt}
+  \scriptsize
+  \item Ed25519 covers both parts; any tampering detected at sidecar.
+  \item $Payload_{priv}$ encrypted under $K_{sym}$ (Hub HSM); sidecar never decrypts.
+  \item Token size: $|\mathrm{AaR}| = 512$\,B nominal.
+  \item $aud = \mathbf{OID}$ binding blocks cross-service replay.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B8. BACKUP — AUTHENTICATION TIER SELECTION (T1–T4)
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Authentication Tiers T1--T4}
+\vspace{2pt}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\begin{tabular}{>{\bfseries}c p{2.2cm} p{4.0cm} p{2.0cm} r}
+\toprule
+\rowcolor{fedacGray}Tier & Trigger & Mechanism & Proof & EKS p50 \\
+\midrule
+T1 & Read-only / low-risk & OAuth2/OIDC SSO; IdP issues $T_{id}$; Hub verifies $PK_{IdP}$ & Session token & 37.1\,ms \\
+T2 & Operational / write & MFA: $OTP = \mathrm{HMAC}(K_{user}, T_{slot})$; independent of T1 & OTP response & 39.1\,ms \\
+T3 & Contextual risk & Risk score $= \sum w_i f_i(Meta) \le \theta(\mathbf{OID})$; inputs: location, device, network, behaviour & Risk score & 136.7\,ms \\
+T4 & High-sensitivity (secret/deploy) & Groth16 SNARK over $\mathcal{H}(\mathbf{OID} \| n)$; attribute compliance without revealing attributes & ZKP $\pi_{domain}$ & 35.3\,ms$^*$ \\
+\bottomrule
+\end{tabular}\\[3pt]
+{\tiny $^*$Hub-side auth latency (G11, EKS); client-side Groth16 prove = 38.7\,ms (local, AMD Ryzen 9 7945HX, $n{=}5$); hub-side Groth16 verify = 2.79\,ms.}\\[2pt]
+\pinkbanner{Tiers run independently — if $\mathbf{Tier}_{req}{=}\{1,4\}$ then SSO \emph{and} ZKP both run. Partial failure denies only the failing service's OID, not the whole request.}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B9. BACKUP — IDENTITY NORMALIZATION AND PRIVACY
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Identity Normalization \& Privacy}
+\vspace{-8pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.54\textwidth}
+\begin{callout}{Context-bound UID derivation (Phase 3)}
+\scriptsize
+\textbf{T1--T2 (SSO/MFA):}
+\vspace{-2pt}
+\[ PPID = \mathcal{H}(ID_{user} \| Salt_{domain}) \]
+\vspace{-6pt}
+Domain-scoped salt: different $PPID$ per domain.\\[2pt]
+\textbf{T4 (ZKP):}
+\vspace{-2pt}
+\[ DID = \mathcal{H}(C_{user} \| ID_{Org} \| n) \]
+\vspace{-6pt}
+Session nonce $n$ makes the DID fresh per session.\\[2pt]
+\textbf{Unified UID (all tiers):}
+\vspace{-2pt}
+\[ UID = \mathcal{H}(ID_{tier} \| \mathbf{OID} \| Tier_{auth} \| Salt_{domain}) \]
+\vspace{-2pt}
+$\mathbf{OID}$-binding: sidecar for service $A$ sees $UID_A \neq UID_B$ for service $B$, same user.
+\end{callout}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{callout}{Privacy guarantees}
+\scriptsize
+\begin{itemize}\tightitems
+\item \textbf{Cross-service unlinkability:} distinct UIDs per OID set; sidecars cannot correlate.
+\item \textbf{Cross-domain unlinkability:} domain salts — PPID in domain A $\neq$ domain B.
+\item \textbf{Cross-tier unlinkability:} UID binds $Tier_{auth}$; T1 and T4 sessions yield distinct UIDs.
+\item \textbf{Attribute minimization:} only $Attr_{proj} = Attr \cap Policy_{attr}$ reaches the authz engine.
+\end{itemize}
+\end{callout}
+\vspace{1pt}
+\pinkbanner{$UID$ appears in public claims for audit logging, but is unlinkable across service boundaries.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B10. BACKUP — RENEWAL PROTOCOL STEP-BY-STEP
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Phase 7 Renewal Protocol}
+\vspace{1pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.54\textwidth}
+\begin{callout}{8-step flow}
+\tiny
+\begin{list}{}{%
+  \setlength{\leftmargin}{18pt}%
+  \setlength{\topsep}{1pt}%
+  \setlength{\itemsep}{2pt}%
+  \setlength{\parsep}{0pt}}
+\item \textbf{1.} Sidecar detects $T_{exp} - t_{now} \leq \delta$ (300\,s); forwards $AaR$ to Token Extender.
+\item \textbf{2.} Token Extender decrypts $Payload_{priv}$ (HSM); checks $\mathbf{Renewal}$: extendable, extensions\_used $<$ max, $t_{now} \leq issued\_at + max\_lifetime$.
+\item \textbf{3.} Condition re-check from $baked\_cond$: time window, network allowlist (no IPFS).
+\item \textbf{4.} Issue challenge $\mathcal{E}(PK_{client}, n_{renew} \| \mathcal{H}(AaR))$ via Sidecar.
+\item \textbf{5.} Client generates $proof_{renew}$ per tier (see right).
+\item \textbf{6.} Token Extender verifies proof.
+\item \textbf{7.} New $AaR'$: same $\mathbf{OID}$, $\mathbf{Cap}$, $baked\_cond$; updated $T'_{exp}$, $extensions\_used{+}1$.
+\item \textbf{8.} $AaR'$ to client; renewal event batched for async chain anchor.
+\end{list}
+\end{callout}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{callout}{Proof per tier}
+\tiny
+\setlength{\tabcolsep}{3pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{>{\bfseries}c p{3.5cm}}
+T1 & $\mathcal{S}(SK_{client}, n_{renew} \| AaR_{hash})$ \\[2pt]
+T2 & T1 proof $+$ fresh OTP \\[2pt]
+T3 & T1 proof $+$ fresh $Meta$ for risk re-score \\[2pt]
+T4 strict & $\pi_{renew}$: ZKP re-commitment proving knowledge of $r$ in $C_{user}$; lighter than $\pi_{domain}$ (no attribute circuit) \\[2pt]
+T4 non-strict & $\mathrm{HMAC}(SK_{session}, n_{renew} \| AaR_{hash})$; $SK_{session}$ re-derivable by Hub \\
+\end{tabular}
+\end{callout}
+\vspace{2pt}
+\pinkbanner{p50 2.34\,ms EKS vs 349\,ms issuance. Speedup: no Merkle-verified IPFS policy retrieval (Invariant~2).}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B11. BACKUP — TARGETED REVOCATION DETAIL
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Targeted Revocation (Phase 8)}
+\vspace{-0.6cm}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.54\textwidth}
+\begin{callout}{When revocation triggers}
+\tiny
+\begin{itemize}\tightitems
+\item \textbf{Authorized update:} admin uploads $\Phi'_j$ to IPFS; Merkle branch recomputed; blockchain root updated.
+\item \textbf{Integrity violation:} Hub finds $R' \neq R$; Active Revocation Protocol fires immediately.
+\end{itemize}
+\end{callout}
+\begin{callout}{3 simultaneous actions (integrity violation)}
+\tiny
+\setlength{\tabcolsep}{2pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{>{\bfseries}l p{4.5cm}}
+Alert     & Signed report of affected $PID_j/CID_j$ to admin \\
+Quarantine & Issuance \& renewal suspended for $\mathbf{OID}_{comp}$ \\
+Kill signal & $\mathcal{S}_{hub}(UID \| \mathbf{OID}_{comp})$ broadcast to all sidecars \\
+\end{tabular}
+\end{callout}
+\end{column}
+\begin{column}{0.44\textwidth}
+\begin{callout}{OID-intersection targeting}
+\tiny
+\[
+T_{active} \leftarrow T_{active} \setminus
+\bigl\{\,t \mid t.\mathbf{OID} \cap \mathbf{OID}_{comp} \neq \emptyset\,\bigr\}
+\]
+\vspace{-4pt}
+Only tokens overlapping the compromised set are revoked; all others stay valid.
+\end{callout}
+\vspace{-0.4cm}
+\begin{callout}{Performance}
+\tiny
+\begin{itemize}\tightitems
+\item p50 1{,}944\,ms to 10 sidecars ($n{=}99$).
+\vspace{-0.15cm}
+\item Bounded by 2\,s poll + one Hub RTT.
+\vspace{-0.15cm}
+\item Zero cross-contamination (Invariant~4).
+\vspace{-0.15cm}
+\item No chain write; on-chain pays $T_{bc}{=}$1--5\,s.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B12. BACKUP — WHY NOT PLAIN JWT / OIDC?
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Why Not Plain JWT / OIDC?}
+\vspace{2pt}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.0}
+\begin{tabular}{p{2.8cm} p{3.2cm} p{4.8cm}}
+\toprule
+\rowcolor{fedacGray}\textbf{Property} & \textbf{JWT (OIDC)} & \textbf{AaR (FEDAC)}\\
+\midrule
+Payload visibility    & All claims plaintext & AES-256-GCM encrypted payload; UID is pseudonymous \\
+Service binding       & Audience is an app, not a service set & $aud = \mathbf{OID}$ — exact microservice set; cross-service replay blocked \\
+Authorization scope   & Generic identity claims; app re-evaluates policy & Per-service $\mathbf{Cap}$ baked at issuance; sidecar reads, not re-evaluates \\
+Hot-path verify       & JWKS RTT per key rotation & Ed25519 + SHA-256 in-process; no network call; O(1) \\
+Renewal               & Full re-authentication (new OIDC flow) & Challenge-response from baked conditions; 2.34\,ms p50 \\
+Revocation            & Blocklist or short TTL & Targeted OID-intersection kill-signal; unaffected tokens valid \\
+Risk-adaptive auth    & Not defined & T1--T4 per service sensitivity; ZKP for high-sensitivity OIDs \\
+\bottomrule
+\end{tabular}\\[4pt]
+\pinkbanner{AaR is not a JWT replacement — it is the authorization \emph{outcome}. The OIDC identity token remains the input to FEDAC Phase 1.}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B13a. BACKUP — IMPLEMENTATION DETAILS (1/2): CODEBASE & INFRASTRUCTURE
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Implementation Details (1/2) — Codebase \& Infrastructure}
+\vspace{6pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}{Codebase}
+\scriptsize
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{l r l}
+\toprule
+Component & LoC & Language \\
+\midrule
+Hub + Sidecar (prod)  & 8{,}700  & Go 1.22 \\
+Hub + Sidecar (tests) & 10{,}200 & Go 1.22 \\
+Tier-4 ZKP verifier   & 1{,}300  & Rust 1.79 \\
+Smart contracts       & 100      & Solidity \\
+Bench + plots         & 1{,}700  & Python 3.11 \\
+\bottomrule
+\end{tabular}
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}{Blockchain and storage}
+\scriptsize
+\begin{itemize}\tightitems
+\item \textbf{Smart contracts (3):} \texttt{PolicyMerkleRootRegistry}, \texttt{UserToPolicyMapping}, \texttt{AaRTokenIssuanceLog}
+\item \textbf{ZKP-CapBAC comparator:} HLF v2.5, 3-org network, solo orderer, 2\,s block interval. FEDAC Hub is not blockchain-gated on the auth path.
+\item \textbf{Policy storage:} IPFS Kubo v0.26; content-addressed by CID.
+\end{itemize}
+\end{callout}
+\vspace{6pt}
+\begin{callout}{Dev / deployment}
+\scriptsize
+\begin{itemize}\tightitems
+\item Docker Compose: Ganache + IPFS + Prometheus + Hub + Sidecar.
+\item Production: Helm chart $\to$ AWS EKS (us-east-1); \texttt{t3.large} nodes.
+\item Reproducibility: \texttt{make bench-all} regenerates all 9 CSVs.
+\end{itemize}
+\end{callout}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% B13b. BACKUP — IMPLEMENTATION DETAILS (2/2): CRYPTOGRAPHIC PARAMETERS
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[noframenumbering]{Backup: Implementation Details (2/2) — Cryptographic Parameters}
+\vspace{8pt}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{12pt}
+\renewcommand{\arraystretch}{1.4}
+\begin{tabular}{l l}
+\toprule
+\rowcolor{fedacGray}\textbf{Parameter} & \textbf{Value} \\
+\midrule
+Token signing      & Ed25519 ($\lambda = 256$\,bit) \\
+Payload encryption & AES-256-GCM \\
+Hash function      & SHA-256 \\
+ZKP proof system   & Groth16 over BLS12-381 \\
+ZKP library        & arkworks-0.4.2 (Rust) \\
+Token size         & 512\,B nominal \\
+OID identifier     & 32\,B \\
+\bottomrule
+\end{tabular}\\[10pt]
+\pinkbanner{All cryptographic parameters are locked (Decision D-015/D-016). Do not re-parameterize without a full security re-analysis.}
+\end{frame}
+}
+
+\end{document} Revocation signal 
