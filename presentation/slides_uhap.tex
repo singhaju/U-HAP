@@ -1,4 +1,3 @@
-% U-HAP Conference Slides — Beamer 16:9, 10-min talk + 5-min Q&A
 % Conference: JCSSE 2026
 %
 % Compile (Overleaf): pdflatex slides_uhap.tex
@@ -173,6 +172,110 @@
 {\small\color{white}Advisor: Asst.\ Prof.\ Dr.\ Somchart Fugkeaw}\\[5pt]
 {\small\color{white}School of ICT, SIIT, Thammasat University, Thailand}
 \end{minipage}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 1b. BACKGROUND / INTRODUCTION  (SSO + Access Control in Kubernetes)
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[t]{Background: SSO and Access Control in Kubernetes}
+\vspace{-13pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}[fonttitle=\bfseries\small,fontupper=\scriptsize]{Access Control in Kubernetes}
+Post-authentication, every API call is dispatched as a \texttt{SubjectAccessReview} (SAR) to an \textbf{authorization phase}.
+\begin{itemize}\tightitems
+\item Built-in modes: \textbf{RBAC} (default), ABAC, Node, \textbf{Webhook}
+\item \textbf{Webhook authorizer} delegates to an external service --- where \textbf{U-HAP} plugs in
+\item Native RBAC lacks fine-grained, \emph{context-aware} authorization
+\end{itemize}
+\end{callout}
+\vspace{0pt}
+\begin{callout}[fontupper=\scriptsize]{Access-Control Models in Practice}
+\setlength{\tabcolsep}{3pt}\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{@{}>{\scriptsize\bfseries\color{uhapNavy}}l >{\scriptsize}p{4.35cm}@{}}
+RBAC & grant access by assigning \emph{roles} to users \\
+ABAC & grant access via \emph{attribute conditions} \\
+ACL  & explicit \emph{list} of allowed users / groups \\
+Deny & explicit block; \emph{overrides} any allow \\
+\end{tabular}
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}[fonttitle=\bfseries\small,fontupper=\scriptsize]{Single Sign-On (SSO)}
+SSO lets a user authenticate \emph{once} with a single identity (e.g.\ OIDC / Keycloak) and reuse it across many services.
+\begin{itemize}\tightitems
+\item Solves \textbf{authentication} --- \emph{who you are}
+\item Does \emph{not} solve \textbf{authorization} --- \emph{what you may do}
+\item After SSO, each resource still enforces \emph{its own} policy model independently
+\end{itemize}
+\end{callout}
+\vspace{1pt}
+\begin{center}
+\scalebox{0.92}{%
+\begin{tikzpicture}[
+  b/.style={draw=uhapNavy!40,fill=uhapGray,rounded corners=2pt,
+            minimum width=1.35cm,minimum height=0.5cm,
+            font=\tiny\bfseries,text=uhapNavyD,align=center},
+  ok/.style={draw=uhapTeal,fill=uhapTeal!15,rounded corners=2pt,
+             minimum width=1.5cm,minimum height=0.5cm,
+             font=\tiny\bfseries,text=uhapNavyD,align=center},
+  pol/.style={draw=uhapRed!55,fill=uhapRed!8,rounded corners=2pt,
+              minimum width=1.0cm,minimum height=0.45cm,
+              font=\tiny\bfseries,text=uhapNavyD,align=center},
+  a/.style={-{Stealth[scale=0.6]},uhapTeal,semithick}]
+  \node[b]  (u)  at (0,0)      {User};
+  \node[ok] (sso)at (1.95,0)   {SSO\\[-1pt]{\tiny authn \checkmark}};
+  \node[pol](r)  at (3.9,0.65) {RBAC?};
+  \node[pol](ab) at (3.9,0)    {ABAC?};
+  \node[pol](ac) at (3.9,-0.65){ACL?};
+  \draw[a] (u)--(sso);
+  \draw[a] (sso)--(r); \draw[a] (sso)--(ab); \draw[a] (sso)--(ac);
+  \node[font=\tiny\itshape,text=uhapRed,align=center] at (3.9,-1.15)
+    {authorization still per-resource};
+\end{tikzpicture}}
+\end{center}
+\vspace{1pt}
+\highlightbanner{SSO unifies \emph{login}; it leaves \emph{authorization} fragmented across RBAC, ABAC, and ACL. U-HAP unifies the authorization side.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 1c. RELATED WORK
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[t]{Related Work and Its Limitations}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+\begin{callout}[fonttitle=\bfseries\scriptsize,fontupper=\tiny]{Hardening \& Misconfiguration}
+\begin{itemize}\tightitems
+\item NSA/CISA hardening guidance [1]; empirical misconfiguration studies [2,3]; EPScan detects excessive RBAC permissions [10]
+\item Formal verification of access policies [11]
+\end{itemize}
+\emph{Limitation:} target \textbf{correctness of individual policies} --- not \emph{unified} authorization across mixed models.
+\end{callout}
+\vspace{2pt}
+\begin{callout}[fonttitle=\bfseries\scriptsize,fontupper=\tiny]{RBAC, Policy-as-Code \& Zero Trust}
+\begin{itemize}\tightitems
+\item K8s RBAC [4]; Zero Trust architecture [12]; PerfSPEC profiling [13]; compile-time policy optimization [14]
+\end{itemize}
+\emph{Limitation:} operate \textbf{within a single model}; repeated per-layer evaluation $\Rightarrow$ redundant checks and added latency.
+\end{callout}
+\end{column}
+\begin{column}{0.49\textwidth}
+\begin{callout}[fonttitle=\bfseries\scriptsize,fontupper=\tiny]{Expressive \& Graph-Based Models}
+\begin{itemize}\tightitems
+\item XACML [7]: expressive but heavyweight PDP, ill-suited to low-latency cloud-native; compiled-XACML indices [15] motivate our compile-time design
+\item Graph / relationship-based AC [8,16]; Zanzibar [17] scales but needs \emph{runtime graph traversal}; ABAC$\to$RBAC conversion [18]
+\end{itemize}
+\emph{Limitation:} heavy PDPs, runtime-traversal overhead, or interoperability only --- no efficient \emph{unified} runtime.
+\end{callout}
+\vspace{2pt}
+\begin{callout}[fonttitle=\bfseries\scriptsize,fontupper=\scriptsize]{The Gap U-HAP Fills}
+No prior work offers a \textbf{unified} framework spanning \textbf{RBAC + ABAC + ACL + deny} that minimizes redundant evaluation while guaranteeing \textbf{scalable, low-latency} multi-resource authorization.
+\end{callout}
+\end{column}
+\end{columns}
 \end{frame}
 
 % ════════════════════════════════════════════════════════════════════════════
@@ -740,17 +843,54 @@ deterministic deny-override conflict resolution.
 \end{frame}
 
 % ════════════════════════════════════════════════════════════════════════════
-% 12. Q&A
+% 11b. REFERENCES  (slide before last)
+% ════════════════════════════════════════════════════════════════════════════
+\begin{frame}[t]{References}
+\vspace{2pt}
+\begin{columns}[T,onlytextwidth]
+\begin{column}{0.49\textwidth}
+{\tiny\setlength{\parindent}{0pt}\setlength{\parskip}{2.2pt}%
+\everypar{\hangindent=1.0em\hangafter=1}%
+[1] NSA \& CISA, ``Kubernetes Hardening Guidance,'' NSA Cybersec.\ Tech.\ Report, ver.\ 1.2, 2022.\par
+[2] A.\ Rahman \emph{et al.}, ``Security Misconfigurations in Open Source Kubernetes Manifests,'' \emph{ACM TOSEM}, 32(4), 2023.\par
+[3] N.\ Yang \emph{et al.}, ``Take Over the Whole Cluster: Attacking Kubernetes via Excessive Permissions,'' \emph{ACM CCS}, 2023.\par
+[4] G.\ Rostami, ``RBAC Authorization in Kubernetes,'' \emph{J.\ ICT Standardization}, 11(3), 2023.\par
+[5] N.\ Farhadighalati \emph{et al.}, ``A Systematic Review of Access Control Models,'' \emph{IEEE Access}, 13, 2025.\par
+[6] M.\ S.\ Rahaman \emph{et al.}, ``Access Control in Cloud-Native Architecture: A Mapping Study,'' \emph{Sensors}, 23(7), 2023.\par
+[7] OASIS, ``XACML Version 3.0 Plus Errata 01,'' OASIS Standard, 2017.\par
+[8] M.\ Yang \emph{et al.}, ``A Graph-Based Framework for ABAC Policy Enforcement and Analysis,'' \emph{DBSec}, 2024.\par
+[9] Z.\ Mori\'c \emph{et al.}, ``Security Hardening and Compliance Assessment of Kubernetes,'' \emph{J.\ Cybersec.\ Privacy}, 5(2), 2025.\par
+}
+\end{column}
+\begin{column}{0.49\textwidth}
+{\tiny\setlength{\parindent}{0pt}\setlength{\parskip}{2.2pt}%
+\everypar{\hangindent=1.3em\hangafter=1}%
+[10] Y.\ Gu \emph{et al.}, ``EPScan: Automated Detection of Excessive RBAC Permissions in Kubernetes,'' \emph{IEEE S\&P}, 2025.\par
+[11] A.\ Sissodiya \emph{et al.}, ``Formal Verification for Preventing Misconfigured Access Policies in Kubernetes,'' \emph{IEEE Access}, 13, 2025.\par
+[12] R.\ Chandramouli \& Z.\ Butcher, ``A Zero Trust Architecture Model for Cloud-Native Applications,'' \emph{NIST SP 800-207A}, 2023.\par
+[13] H.\ Nguyen \emph{et al.}, ``PerfSPEC: Profiling-Based Proactive Security Policy Enforcement for Containers,'' \emph{IEEE Computer}, 2025.\par
+[14] S.\ Kern \emph{et al.}, ``Optimization of Access Control Policies,'' \emph{J.\ Inf.\ Secur.\ Appl.}, 70, 2022.\par
+[15] A.\ X.\ Liu \emph{et al.}, ``Designing Fast and Scalable XACML Policy Evaluation Engines,'' \emph{IEEE Trans.\ Computers}, 60(12), 2011.\par
+[16] L.\ Ma \emph{et al.}, ``Authorization Model of Attribute Access Control Based on Knowledge Graph,'' \emph{UbiSec}, 2024.\par
+[17] R.\ Pang \emph{et al.}, ``Zanzibar: Google's Consistent, Global Authorization System,'' \emph{USENIX ATC}, 2019.\par
+[18] M.\ Davari \& M.\ Zulkernine, ``Automatic Conversion of ABAC Policies for RBAC Systems,'' \emph{IEEE DSC}, 2023.\par
+}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ════════════════════════════════════════════════════════════════════════════
+% 12. THANK YOU  (final slide)
 % ════════════════════════════════════════════════════════════════════════════
 {\setbeamertemplate{footline}{}
 \begin{frame}[plain,noframenumbering]
 \dividerBg
 \vbox to \textheight{\vfil
   \hbox to \textwidth{\hfil
-    \fontsize{34pt}{38pt}\selectfont\bfseries\color{white}Questions?\hfil}%
+    \fontsize{38pt}{42pt}\selectfont\bfseries\color{white}Thank you!\hfil}%
   \vskip 12pt
   \hbox to \textwidth{\hfil
-    \large\color{white!85!black}Thank you for your attention.\hfil}%
+    \large\color{white!85!black}Questions are welcome.\hfil}%
   \vskip 16pt
   \hbox to \textwidth{\hfil
     \small\color{uhapTeal}
