@@ -513,12 +513,119 @@ def build_slide_01(prs):
         cy += Inches(0.38)
 
 
+def build_slide_background(prs):
+    """Slide 2 — Background: SSO and Access Control in Kubernetes."""
+    layout = prs.slide_layouts[6]
+    sl = prs.slides.add_slide(layout)
+    add_header(sl, "Background: SSO and Access Control in Kubernetes")
+    add_footer(sl, 1, 13)
+
+    lx = LMARGIN
+    lw = Inches(4.5)
+    rx = Inches(5.0)
+    rw = Inches(4.72)
+    ct = CONTENT_T
+
+    # Left column
+    callout_mixed(sl, lx, ct, lw, Inches(1.3),
+                  "Access Control in Kubernetes",
+                  "Post-authentication, every API call is dispatched as a SubjectAccessReview (SAR) to an authorization phase.",
+                  [
+                      "Built-in modes: RBAC (default), ABAC, Node, Webhook",
+                      "Webhook authorizer delegates to an external service — where U-HAP plugs in",
+                      "Native RBAC lacks fine-grained, context-aware authorization",
+                  ],
+                  title_font_pt=9, body_font_pt=8)
+
+    tbl_rows = [
+        ["Model", "How it grants access"],
+        ["RBAC",  "Assign roles to users"],
+        ["ABAC",  "Attribute conditions on request"],
+        ["ACL",   "Explicit named list of users / groups"],
+        ["Deny",  "Explicit block — overrides any allow"],
+    ]
+    add_table(sl, lx, ct + Inches(1.37), lw,
+              [Inches(0.75), Inches(3.7)], tbl_rows, font_pt=8)
+
+    # Right column
+    callout_mixed(sl, rx, ct, rw, Inches(1.3),
+                  "Single Sign-On (SSO)",
+                  "SSO lets a user authenticate once (e.g. via OIDC / Keycloak) and reuse that identity across services.",
+                  [
+                      "Solves authentication — who you are",
+                      "Does NOT solve authorization — what you may do",
+                      "After SSO, each resource still enforces its own policy model independently",
+                  ],
+                  title_font_pt=9, body_font_pt=8)
+
+    add_highlight_banner(sl, rx, ct + Inches(1.37), rw,
+                         "SSO unifies login; it leaves authorization fragmented across RBAC, ABAC, and ACL. "
+                         "U-HAP unifies the authorization side.")
+
+    # Simple diagram below banner
+    diag_t = ct + Inches(1.78)
+    add_textbox(sl, rx, diag_t, rw, Inches(0.22),
+                "User  →  SSO (authn ✓)  →  RBAC? / ABAC? / ACL?",
+                font_pt=8, color=NAVY_D, italic=True, align=PP_ALIGN.CENTER)
+    add_textbox(sl, rx, diag_t + Inches(0.24), rw, Inches(0.22),
+                "authorization still per-resource  ← problem",
+                font_pt=7, color=RED, italic=True, align=PP_ALIGN.CENTER)
+
+
+def build_slide_related_work(prs):
+    """Slide 3 — Related Work and Its Limitations."""
+    layout = prs.slide_layouts[6]
+    sl = prs.slides.add_slide(layout)
+    add_header(sl, "Related Work and Its Limitations")
+    add_footer(sl, 2, 13)
+
+    lx = LMARGIN
+    lw = Inches(4.5)
+    rx = Inches(5.0)
+    rw = Inches(4.72)
+    ct = CONTENT_T
+
+    # Left column
+    callout_mixed(sl, lx, ct, lw, Inches(1.1),
+                  "Hardening & Misconfiguration [1–3, 9–11]",
+                  "NSA/CISA guidance; empirical misconfig studies; EPScan; formal verification.",
+                  [
+                      "Limitation: target correctness of individual policies — not unified authorization across mixed models",
+                  ],
+                  title_font_pt=9, body_font_pt=8)
+
+    callout_mixed(sl, lx, ct + Inches(1.17), lw, Inches(1.1),
+                  "RBAC, Policy-as-Code & Zero Trust [4, 12–14]",
+                  "K8s RBAC; Zero Trust architecture; PerfSPEC; compile-time optimization.",
+                  [
+                      "Limitation: operate within a single model — repeated per-layer evaluation adds redundant checks and latency",
+                  ],
+                  title_font_pt=9, body_font_pt=8)
+
+    # Right column
+    callout_mixed(sl, rx, ct, rw, Inches(1.4),
+                  "Expressive & Graph-Based Models [7, 8, 15–18]",
+                  "XACML (expressive but heavyweight PDP); Zanzibar (scales globally but needs runtime graph traversal); ABAC-to-RBAC conversion.",
+                  [
+                      "Limitation: heavy PDPs, runtime-traversal overhead, or interoperability only — no efficient unified runtime",
+                  ],
+                  title_font_pt=9, body_font_pt=8)
+
+    callout_body_text(sl, rx, ct + Inches(1.47), rw, Inches(0.85),
+                      "The Gap U-HAP Fills",
+                      "No prior work offers a unified framework spanning RBAC + ABAC + ACL + deny "
+                      "that minimizes redundant evaluation while guaranteeing scalable, low-latency "
+                      "multi-resource authorization.",
+                      title_font_pt=9, body_font_pt=8,
+                      title_bg=TEAL)
+
+
 def build_slide_02(prs):
     """Slide 2 — Motivation."""
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Motivation: The Kubernetes Authorization Problem")
-    add_footer(sl, 1, 10)
+    add_footer(sl, 3, 13)
 
     # ── Left column ────────────────────────────────────────────────────────
     lx = LMARGIN
@@ -598,7 +705,7 @@ def build_slide_03(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Our Solution: U-HAP")
-    add_footer(sl, 2, 10)
+    add_footer(sl, 4, 13)
 
     lx = LMARGIN
     lw = Inches(4.5)
@@ -640,7 +747,7 @@ def build_slide_04(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "System Architecture: Three-Phase Design")
-    add_footer(sl, 3, 10)
+    add_footer(sl, 5, 13)
 
     lx = LMARGIN
     lw = Inches(5.9)
@@ -694,7 +801,7 @@ def build_slide_05(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Compilation: Hash Consing and Indexed Artifacts")
-    add_footer(sl, 4, 10)
+    add_footer(sl, 6, 13)
 
     lx = LMARGIN
     lw = Inches(4.4)
@@ -754,7 +861,7 @@ def build_slide_06(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Two-Level Pruning Strategy")
-    add_footer(sl, 5, 10)
+    add_footer(sl, 7, 13)
 
     lx = LMARGIN
     lw = Inches(4.5)
@@ -804,30 +911,56 @@ def build_slide_06(prs):
 
 
 def build_slide_07(prs):
-    """Slide 7 — Correctness Scenarios S1–S7."""
+    """Slide 9 — Evaluation Setup."""
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
-    add_header(sl, "Correctness Verification: Scenarios S1–S7")
-    add_footer(sl, 6, 10)
+    add_header(sl, "Evaluation Setup")
+    add_footer(sl, 8, 13)
 
+    lx = LMARGIN
+    lw = Inches(4.5)
+    rx = Inches(5.0)
+    rw = Inches(4.72)
     ct = CONTENT_T
-    tbl_rows = [
-        ["ID", "Subject", "Model", "Resource/Verb", "Context", "Expected"],
-        ["S1", "alice",   "ABAC",      "pods/prod / get",    "on-premise + business-hours", (     "ALLOW", GREEN)],
-        ["S2", "alice",   "ABAC",      "pods/prod / get",    "remote",                      (     "DENY",  RED  )],
-        ["S3", "alice",   "RBAC",      "pods/dev / get",     "any",                         (     "ALLOW", GREEN)],
-        ["S4", "bob",     "ABAC",      "pods/prod / delete", "after-hours",                 (     "DENY",  RED  )],
-        ["S5", "*",       "Deny",      "secrets / delete",   "any",                         (     "DENY",  RED  )],
-        ["S6", "charlie", "ACL",       "pods/dev / get",     "any",                         (     "ALLOW", GREEN)],
-        ["S7", "dave",    "Hierarchy", "pods/prod / get",    "any",                         (     "ALLOW", GREEN)],
-    ]
-    col_widths = [Inches(0.5), Inches(0.7), Inches(0.95), Inches(1.7), Inches(2.4), Inches(3.14)]
-    tbl_shape  = add_table(sl, LMARGIN, ct, USABLE_W, col_widths, tbl_rows, font_pt=8)
 
-    ban_t = ct + Inches(0.22 * 8) + Inches(0.15)
-    add_highlight_banner(sl, LMARGIN, ban_t, USABLE_W,
-                         "All 7 scenarios are non-negotiable correctness gates. "
-                         "All pass in the U-HAP implementation.")
+    # Left column
+    callout_box(sl, lx, ct, lw, Inches(1.1),
+                "Hardware and Implementation",
+                [
+                    "AMD Ryzen 9 7945HX (16C/32T), 32 GB DDR5-4800, CachyOS Linux",
+                    "U-HAP: Python 3.11 (in-memory evaluation)",
+                    "Baseline: conventional SSO-based system — sequential policy scanning",
+                ],
+                body_font_pt=8)
+
+    callout_box(sl, lx, ct + Inches(1.17), lw, Inches(1.4),
+                "Measurement Methodology",
+                [
+                    "Median of 1,000 iterations after 50 warm-up runs",
+                    "In-memory policy lookup only — no network, no auth overhead",
+                    "Each namespace: 46 rules (10 RBAC, 20 ABAC, 10 ACL, 1 deny, 5 hierarchy edges)",
+                    "ABAC gates: AND/OR/ATLEAST with ~50% atom sharing across rules",
+                ],
+                body_font_pt=8)
+
+    # Right column
+    callout_box(sl, rx, ct, rw, Inches(1.0),
+                "Why In-Memory Benchmarks?",
+                [
+                    "Isolates pure algorithm cost from network and framework overhead",
+                    "Reveals true compilation gains: hash-consed DAG vs. sequential scan",
+                    "Caching effect visible directly without HTTP round-trip noise",
+                ],
+                body_font_pt=8)
+
+    callout_box(sl, rx, ct + Inches(1.07), rw, Inches(1.0),
+                "Baseline: SSO-Based Sequential Evaluation",
+                [
+                    "Iterates over all policy rules per request",
+                    "RBAC: repeated role resolution + hierarchy traversal at runtime",
+                    "Represents conventional authorization without compile-time indexing",
+                ],
+                body_font_pt=8)
 
 
 def build_slide_08(prs):
@@ -835,7 +968,7 @@ def build_slide_08(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Experiment 1: Policy Verification Efficiency")
-    add_footer(sl, 7, 10)
+    add_footer(sl, 9, 13)
 
     lx = LMARGIN
     lw = Inches(5.3)
@@ -887,7 +1020,7 @@ def build_slide_09(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Experiment 2: Policy Size Impact")
-    add_footer(sl, 8, 10)
+    add_footer(sl, 10, 13)
 
     lx = LMARGIN
     lw = Inches(5.3)
@@ -943,7 +1076,7 @@ def build_slide_10(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Experiment 3: Policy Update Latency vs. OPA")
-    add_footer(sl, 9, 10)
+    add_footer(sl, 11, 13)
 
     lx = LMARGIN
     lw = Inches(5.3)
@@ -994,7 +1127,7 @@ def build_slide_11(prs):
     layout = prs.slide_layouts[6]
     sl = prs.slides.add_slide(layout)
     add_header(sl, "Conclusion")
-    add_footer(sl, 10, 10)
+    add_footer(sl, 12, 13)
 
     lx = LMARGIN
     lw = Inches(4.5)
@@ -1041,6 +1174,50 @@ def build_slide_11(prs):
                 body_font_pt=9)
 
 
+def build_slide_references(prs):
+    """Slide 14 — References."""
+    layout = prs.slide_layouts[6]
+    sl = prs.slides.add_slide(layout)
+    add_header(sl, "References")
+    add_footer(sl, 13, 13)
+
+    lx = LMARGIN
+    lw = Inches(4.5)
+    rx = Inches(5.0)
+    rw = Inches(4.72)
+    ct = CONTENT_T + Inches(0.05)
+    line_h = Inches(0.195)
+
+    refs_left = [
+        "[1] NSA & CISA, \"Kubernetes Hardening Guidance,\" NSA Cybersec. Tech. Report, ver. 1.2, 2022.",
+        "[2] A. Rahman et al., \"Security Misconfigurations in Open Source Kubernetes Manifests,\" ACM TOSEM, 32(4), 2023.",
+        "[3] N. Yang et al., \"Take Over the Whole Cluster: Attacking Kubernetes via Excessive Permissions,\" ACM CCS, 2023.",
+        "[4] G. Rostami, \"RBAC Authorization in Kubernetes,\" J. ICT Standardization, 11(3), 2023.",
+        "[5] N. Farhadighalati et al., \"A Systematic Review of Access Control Models,\" IEEE Access, 13, 2025.",
+        "[6] M. S. Rahaman et al., \"Access Control in Cloud-Native Architecture: A Mapping Study,\" Sensors, 23(7), 2023.",
+        "[7] OASIS, \"XACML Version 3.0 Plus Errata 01,\" OASIS Standard, 2017.",
+        "[8] M. Yang et al., \"A Graph-Based Framework for ABAC Policy Enforcement,\" DBSec, 2024.",
+        "[9] Z. Moric et al., \"Security Hardening and Compliance Assessment of Kubernetes,\" J. Cybersec. Privacy, 5(2), 2025.",
+    ]
+    refs_right = [
+        "[10] Y. Gu et al., \"EPScan: Automated Detection of Excessive RBAC Permissions,\" IEEE S&P, 2025.",
+        "[11] A. Sissodiya et al., \"Formal Verification for Preventing Misconfigured Access Policies,\" IEEE Access, 13, 2025.",
+        "[12] R. Chandramouli & Z. Butcher, \"A Zero Trust Architecture Model for Cloud-Native Apps,\" NIST SP 800-207A, 2023.",
+        "[13] H. Nguyen et al., \"PerfSPEC: Profiling-Based Proactive Security Policy Enforcement,\" IEEE Computer, 2025.",
+        "[14] S. Kern et al., \"Optimization of Access Control Policies,\" J. Inf. Secur. Appl., 70, 2022.",
+        "[15] A. X. Liu et al., \"Designing Fast and Scalable XACML Policy Evaluation Engines,\" IEEE Trans. Computers, 60(12), 2011.",
+        "[16] L. Ma et al., \"Authorization Model of Attribute Access Control Based on Knowledge Graph,\" UbiSec, 2024.",
+        "[17] R. Pang et al., \"Zanzibar: Google's Consistent, Global Authorization System,\" USENIX ATC, 2019.",
+        "[18] M. Davari & M. Zulkernine, \"Automatic Conversion of ABAC Policies for RBAC Systems,\" IEEE DSC, 2023.",
+    ]
+
+    for i, ref in enumerate(refs_left):
+        add_textbox(sl, lx, ct + line_h * i, lw, line_h, ref, font_pt=6, color=NAVY_D)
+
+    for i, ref in enumerate(refs_right):
+        add_textbox(sl, rx, ct + line_h * i, rw, line_h, ref, font_pt=6, color=NAVY_D)
+
+
 def build_slide_12(prs):
     """Slide 12 — Q&A (navy background, no header/footer)."""
     layout = prs.slide_layouts[6]
@@ -1050,17 +1227,28 @@ def build_slide_12(prs):
     add_rect(sl, 0, 0, W, Inches(0.08), fill_color=TEAL)
     add_rect(sl, 0, H - Inches(0.08), W, Inches(0.08), fill_color=TEAL)
 
-    # "Questions?"
+    # "Thank you!"
     txb = sl.shapes.add_textbox(Inches(0.5), Inches(1.5), W - Inches(1.0), Inches(1.2))
     tf  = txb.text_frame
     p   = tf.paragraphs[0]
     p.alignment = PP_ALIGN.CENTER
     run = p.add_run()
-    run.text = "Questions?"
+    run.text = "Thank you!"
     run.font.size  = Pt(40)
     run.font.bold  = True
     run.font.color.rgb = WHITE
     run.font.name  = "Calibri"
+
+    # Subtitle
+    txb_sub = sl.shapes.add_textbox(Inches(0.5), Inches(2.5), W - Inches(1.0), Inches(0.5))
+    tf_sub  = txb_sub.text_frame
+    p_sub   = tf_sub.paragraphs[0]
+    p_sub.alignment = PP_ALIGN.CENTER
+    run_sub = p_sub.add_run()
+    run_sub.text = "Questions are welcome."
+    run_sub.font.size  = Pt(18)
+    run_sub.font.color.rgb = TEAL
+    run_sub.font.name  = "Calibri"
 
     # Contact
     txb2 = sl.shapes.add_textbox(Inches(0.5), Inches(3.0), W - Inches(1.0), Inches(0.8))
@@ -1442,27 +1630,30 @@ def main():
     prs.slide_height = H
 
     builders = [
-        build_slide_01,   # 1  Title
-        build_slide_02,   # 2  Motivation
-        build_slide_03,   # 3  Solution
-        build_slide_04,   # 4  Architecture
-        build_slide_05,   # 5  Hash Consing
-        build_slide_06,   # 6  Pruning
-        build_slide_07,   # 7  S1–S7 table
-        build_slide_08,   # 8  Exp1
-        build_slide_09,   # 9  Exp2
-        build_slide_10,   # 10 Exp3
-        build_slide_11,   # 11 Conclusion
-        build_slide_12,   # 12 Q&A
-        build_slide_13,   # 13 Backup: Runtime eval order
-        build_slide_14,   # 14 Backup: S1–S7
-        build_slide_15,   # 15 Backup: Hash consing example
-        build_slide_16,   # 16 Backup: RBAC bit-vector
-        build_slide_17,   # 17 Backup: Memory footprint
-        build_slide_18,   # 18 Backup: Cache impact
-        build_slide_19,   # 19 Backup: OPA comparison
-        build_slide_20,   # 20 Backup: DSL format
-        build_slide_21,   # 21 Backup: Implementation details
+        build_slide_01,           # 1  Title
+        build_slide_background,   # 2  Background
+        build_slide_related_work, # 3  Related Work
+        build_slide_02,           # 4  Motivation
+        build_slide_03,           # 5  Solution
+        build_slide_04,           # 6  Architecture
+        build_slide_05,           # 7  Hash Consing
+        build_slide_06,           # 8  Pruning
+        build_slide_07,           # 9  Evaluation Setup
+        build_slide_08,           # 10 Exp1
+        build_slide_09,           # 11 Exp2
+        build_slide_10,           # 12 Exp3
+        build_slide_11,           # 13 Conclusion
+        build_slide_references,   # 14 References
+        build_slide_12,           # 15 Thank You
+        build_slide_13,           # 16 Backup: Runtime eval order
+        build_slide_14,           # 17 Backup: S1–S7
+        build_slide_15,           # 18 Backup: Hash consing example
+        build_slide_16,           # 19 Backup: RBAC bit-vector
+        build_slide_17,           # 20 Backup: Memory footprint
+        build_slide_18,           # 21 Backup: Cache impact
+        build_slide_19,           # 22 Backup: OPA comparison
+        build_slide_20,           # 23 Backup: DSL format
+        build_slide_21,           # 24 Backup: Implementation details
     ]
 
     for i, fn in enumerate(builders, start=1):
