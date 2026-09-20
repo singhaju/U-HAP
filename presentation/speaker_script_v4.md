@@ -131,7 +131,7 @@ The first experiment scales the number of namespaces from ten to one thousand.
 `[PAUSE]`
 The result is the key contrast. U-HAP stays **flat**, because the constant-time lookup goes straight to the right artifact, whereas the baseline grows **linearly**, scanning on every request. That is about **1.7 times** lower latency, and roughly **14 times** once caching is enabled.
 
-In short, adding 990 background namespaces has no effect on the one you care about.
+The conceptual result is that adding 990 background namespaces has no measurable effect on the one namespace under evaluation.
 
 ---
 
@@ -155,7 +155,7 @@ We compare against **OPA**, the Open Policy Agent, the industry-standard, CNCF-g
 `[PAUSE]`
 At two thousand policies, U-HAP is about **2.7 times** faster end to end — 223 milliseconds against 611 — and **19.5 times** faster on the engine alone, all in under **2.7 megabytes**.
 
-So compilation pays off twice — faster requests, and faster policy rollout.
+So compilation pays off a benefit twice with faster requests, and faster policy rollout.
 
 ---
 

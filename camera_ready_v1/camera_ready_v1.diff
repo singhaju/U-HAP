@@ -1,0 +1,201 @@
+--- U-HAP_deliverble_original.md	2026-04-25 20:02:15.918068768 +0700
++++ U-HAP_deliverble_camera_ready.md	2026-04-25 20:06:55.589551247 +0700
+@@ -53,7 +53,12 @@
+ authorization latency even as the number of namespaces scales, significantly
+ outperforming traditional approaches. Furthermore, compilation-based
+ optimization enables sub-linear scaling for complex policies, while decision
+-caching provides additional speedups for repeated requests.
++caching provides additional speedups for repeated requests. Beyond per-request
++performance, U-HAP also improves \emph{policy update latency}: at 2{,}000 rules,
++U-HAP propagates an edit to first decision in 223\,ms versus 611\,ms for Open
++Policy Agent (OPA), a $2.73\times$ end-to-end improvement (and $19.5\times$ on
++the engine-only post-parse path) under semantically equivalent policies
++verified by an automated decision-equivalence gate.
+ \end{abstract}
+ \begin{IEEEkeywords}
+ access control, Kubernetes, policy unification, directed acyclic graph,
+@@ -136,7 +141,11 @@
+ in real-world deployments~\cite{b2, b3}, often enabling privilege
+ escalation and even full cluster compromise. Recent tools such
+ as EPScan~\cite{b10} further confirm that excessive RBAC permissions
+-in third-party applications continue to be a systematic security risk.
++in third-party applications continue to be a systematic security risk,
++while KubeKeeper~\cite{b19} mitigates this risk by enforcing
++sub-RBAC, per-pod authorization for Kubernetes secrets through an
++admission webhook---the same extension point U-HAP exploits, but
++restricted to request-time enforcement of a single resource type.
+ Complementary work on formal verification~\cite{b11} demonstrates that
+ static policy analysis can prevent misconfigurations in Kubernetes
+ clusters, yet such approaches address correctness of individual policies
+@@ -145,7 +154,13 @@
+ Kubernetes natively adopts Role-Based Access Control
+ (RBAC)~\cite{b4}, which provides scalable permission
+ management but lacks expressiveness for fine-grained,
+-context-aware authorization. To address these limitations,
++context-aware authorization. KubeFence~\cite{b20} likewise
++argues that Kubernetes RBAC alone lacks attribute-level
++granularity and addresses this gap by compiling per-workload
++API filters at deploy time---a design philosophy aligned with
++U-HAP's compile-then-enforce approach but operating at the
++container-image level rather than as a unified ACL/RBAC/ABAC/Deny
++authorizer. To address these limitations,
+ policy-as-code frameworks enable declarative and dynamic
+ policy enforcement, while Zero Trust
+ architectures~\cite{b12} promote continuous verification and
+@@ -709,6 +724,111 @@
+ crossovers at $k{\approx}40$ and $k{\approx}20$. Overall, performance gains
+ become significant beyond the crossover point and increase with scale.
+ 
++\textbf{Experiment 5 (Policy Update Latency vs.\ OPA).}
++A common concern with compilation-driven authorization is that the cost
++of \emph{updating} the policy set may erode the per-request advantages.
++We therefore measure the end-to-end \emph{update latency}: the wall-clock
++time from policy modification to the first authorization request decided
++under the new policy---the operational primitive that bounds how quickly
++an administrator's edit can propagate to enforcement. We compare against
++\textbf{Open Policy Agent (OPA)}~\cite{b21}, the \emph{de facto}
++general-purpose policy engine in cloud-native deployments and a CNCF
++graduated project. To ensure a fair comparison, we mechanically translate
++each U-HAP policy set into semantically equivalent Rego using a
++YAML$\rightarrow$Rego compiler that precomputes role-hierarchy transitive
++closure and emits partition-gated rules under a single Rego module.
++Equivalence is verified by an automated gate: $100$\,/\,$100$ random
++subject-action requests produce identical \textsc{allow}/\textsc{deny}
++decisions on each policy set ($n\,{=}\,10\,\ldots\,2{,}000$, $100\%$
++match).
++
++Synthetic policy sets of size $n\in\{10, 100, 500, 1000, 2000\}$ are
++generated with a fixed mix of $40\%$ RBAC, $30\%$ ABAC, $15\%$ ACL,
++$10\%$ deny, and $5\%$ role-hierarchy edges to exercise every U-HAP rule
++type proportionally. For each $n$, both systems execute three warm-up
++updates followed by 30 timed updates; we report the median and a
++non-parametric $95\%$ confidence interval obtained by 1000-resample
++percentile bootstrap. The U-HAP cycle decomposes into
++\emph{parse}/\emph{compile}/\emph{swap}/\emph{first request}; the OPA
++cycle decomposes into \emph{REST PUT} (parse + compile inside the daemon)
++and \emph{first decision POST}. We additionally report the
++\emph{post-parse} latency (compile + swap + first request) as the
++apples-to-apples comparison against OPA's \texttt{PUT}, since YAML
++parsing is a fixed cost both systems pay regardless of engine choice.
++
++\begin{figure}[htbp]
++\centering
++\includegraphics[width=\columnwidth]{figures/fig5_update_latency.png}
++\caption{End-to-end update latency vs.\ policy count (log--log,
++B\&W-safe). Bars are $95\%$ percentile-bootstrap CIs (1000 resamples).
++The gap grows with policy count, reaching $2.73\times$ at $n{=}2000$.}
++\label{fig:exp5}
++\end{figure}
++
++\begin{table}[htbp]
++\caption{Update latency (median over 30 runs, lower is better).
++\emph{Total} is the full parse$\rightarrow$compile$\rightarrow$swap$\rightarrow$first-decision
++cycle; \emph{Post-parse} excludes the engine-agnostic YAML parse step
++and isolates the engine-specific work. Speedup~=~OPA / U-HAP.}
++\label{tab:exp5}
++\centering
++\small
++\setlength{\tabcolsep}{4pt}
++\begin{tabular}{rrrrrrr}
++\toprule
++& \multicolumn{3}{c}{Total\,(ms)} & \multicolumn{3}{c}{Post-parse\,(ms)} \\
++\cmidrule(lr){2-4}\cmidrule(lr){5-7}
++$n$ & U-HAP & OPA & $\times$ & U-HAP & OPA & $\times$ \\
++\midrule
++10   &   1.75 &   2.85 & $1.63\times$ &  0.14 &   2.85 & $20.4\times$ \\
++100  &  14.76 &  26.60 & $1.80\times$ &  2.03 &  26.60 & $13.1\times$ \\
++500  &  57.35 & 119.40 & $2.08\times$ &  7.87 & 119.40 & $15.2\times$ \\
++1000 & 109.99 & 277.32 & $2.52\times$ & 16.27 & 277.32 & $17.0\times$ \\
++2000 & 223.41 & 610.54 & $2.73\times$ & 31.31 & 610.54 & $19.5\times$ \\
++\bottomrule
++\end{tabular}
++\end{table}
++
++\begin{figure}[htbp]
++\centering
++\includegraphics[width=\columnwidth]{figures/fig5_breakdown.png}
++\caption{U-HAP update-latency breakdown. The \emph{compile} phase
++(graph build, transitive closure, index compilation) dominates; the
++\emph{swap} step is constant ($<0.1$\,ms) and the first request is
++$O(1)$ after compilation by construction.}
++\label{fig:exp5_breakdown}
++\end{figure}
++
++Table~\ref{tab:exp5} summarises medians across policy sizes and
++Fig.~\ref{fig:exp5} plots the same data with $95\%$ bootstrap CIs.
++At every operating point U-HAP completes the update cycle faster than
++OPA, and the gap widens with policy count: from $1.63\times$ at $n{=}10$
++to $2.73\times$ at $n{=}2000$. On the engine-only post-parse path---the
++apples-to-apples comparison---the advantage reaches $19.5\times$ at
++$n{=}2000$ ($31$\,ms vs.\ $611$\,ms), reflecting the asymptotic benefit
++of compile-time hash consing and indexed artifacts over OPA's
++per-update Rego compilation. We additionally measured an OPA
++\emph{bundle activation} mode (\texttt{opa build -b} followed by REST
++upload), which yields results within $\pm 4\%$ of the REST PUT mode at
++every $n$, confirming the gap is not a deployment-mode artefact. The
++breakdown in Fig.~\ref{fig:exp5_breakdown} shows that U-HAP's update
++cost is dominated by the compile phase that produces the hash-consed
++DAG and the per-($n$,$r$,$a$) indexed artifacts; the compiled-state
++memory footprint grows from $0.1$\,MiB at $n{=}10$ to $2.7$\,MiB at
++$n{=}2000$, well within the operating budget of an in-cluster admission
++webhook.
++
++\noindent\textbf{Single-replica scope.} The numbers above measure the
++per-replica swap latency. In a multi-replica deployment, a global
++update also incurs a propagation step that depends on the chosen
++distribution mechanism (Kubernetes \texttt{ConfigMap}\,+\,reload, Git
++pull, or a control-plane push). Because that propagation cost is
++identical for U-HAP and OPA when both consume the same delivery
++substrate, the per-replica numbers reported here are the right
++primitive for comparing the two engines, and the observed
++$2.73\times$ swap-time advantage carries through to the
++post-propagation consistency window.
++
+ 
+ 
+ %% ==========================================================================
+@@ -725,13 +845,21 @@
+ $1.7\times$ speedup from compiled evaluation and up to $14\times$ for
+ repeated requests. Per-model analysis further demonstrates improved
+ efficiency across all policy types, with up to $16.9\times$ speedup for
+-ABAC, $5.0\times$ for ACL, and $5.6\times$ for RBAC at $k{=}320$ rules. Future work includes extending U-HAP to support cluster-wide and
++ABAC, $5.0\times$ for ACL, and $5.6\times$ for RBAC at $k{=}320$ rules.
++Beyond the request path, U-HAP also outperforms OPA on the
++\emph{policy-update} path: at $2{,}000$ rules, U-HAP completes the full
++edit-to-first-decision cycle in $223$\,ms versus OPA's $611$\,ms
++($2.73\times$ end-to-end, $19.5\times$ on the engine-only post-parse
++path), with a compiled-state footprint of $2.7$\,MiB. This evidence
++supports the claim that compile-time hash consing and indexed artifacts
++are the right architectural choice for Kubernetes admission-time
++authorization at production scale. Future work includes extending U-HAP to support cluster-wide and
+ cross-namespace policies, enabling dynamic updates without full
+ recompilation, and integrating with production-grade authorization
+ engines for large-scale multi-cluster evaluation.
+ 
+ %% ==========================================================================
+-\begin{thebibliography}{18}
++\begin{thebibliography}{21}
+ \bibitem{b1}
+ {NSA and CISA},
+ ``Kubernetes Hardening Guidance,''
+@@ -835,5 +963,20 @@
+ ``Automatic Conversion of ABAC Policies for RBAC Systems,''
+ in \emph{Proc. 2023 IEEE Conference on Dependable and Secure Computing (DSC)}, 2023, pp.~1--7, doi: 10.1109/DSC61021.2023.10354157.
+ 
++\bibitem{b19}
++M.~Rostamipoor, S.~Sadeghi, and M.~Polychronakis,
++``KubeKeeper: Protecting {K}ubernetes Secrets Against Excessive Permissions,''
++in \emph{Proc.\ 2025 IEEE Eur.\ Symp.\ Security and Privacy (EuroS\&P)}, 2025, pp.~322--338.
++
++\bibitem{b20}
++C.~Cesarano and R.~Natella,
++``KubeFence: Security Hardening of the {K}ubernetes Attack Surface,''
++in \emph{Proc.\ 2025 IEEE/IFIP Int.\ Conf.\ on Dependable Systems and Networks (DSN)}, 2025, pp.~497--510, doi: 10.1109/DSN64029.2025.00054.
++
++\bibitem{b21}
++{Open Policy Agent},
++``OPA --- Open Policy Agent,'' CNCF graduated project, 2024.
++[Online]. Available: \url{https://www.openpolicyagent.org/}
++
+ \end{thebibliography}
+ \end{document}

@@ -1,0 +1,45 @@
+## B&W-safe matplotlib style for U-HAP camera-ready (JCSSE 2026)
+## All series distinguishable by linestyle + marker + grayscale shade.
+
+# Color cycle: pure-black + 3 shades of gray
+axes.prop_cycle: cycler('color', ['000000', '404040', '808080', 'b0b0b0']) + cycler('linestyle', ['-', '--', '-.', ':']) + cycler('marker', ['o', 's', '^', 'D'])
+
+# Resolution + size for IEEE columns
+figure.dpi: 150
+savefig.dpi: 300
+figure.figsize: 5.0, 3.4
+savefig.bbox: tight
+savefig.pad_inches: 0.05
+
+# Typography (IEEE-friendly)
+font.family: serif
+font.serif: Times New Roman, DejaVu Serif
+font.size: 9
+axes.titlesize: 9
+axes.labelsize: 9
+xtick.labelsize: 8
+ytick.labelsize: 8
+legend.fontsize: 8
+legend.frameon: True
+legend.edgecolor: black
+legend.framealpha: 1.0
+
+# Grid + spines
+axes.grid: True
+grid.linestyle: :
+grid.alpha: 0.4
+grid.color: 808080
+axes.spines.top: True
+axes.spines.right: True
+axes.linewidth: 0.8
+
+# Lines + markers
+lines.linewidth: 1.4
+lines.markersize: 5.0
+lines.markeredgewidth: 0.8
+lines.markeredgecolor: black
+
+# Hatch for bar charts (B&W)
+hatch.linewidth: 0.5
+patch.edgecolor: black
+patch.linewidth: 0.6

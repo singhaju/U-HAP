@@ -250,14 +250,14 @@ SSO lets a user authenticate \emph{once} with a single identity (e.g.\ OIDC / Ke
 \begin{callout}[fonttitle=\bfseries\scriptsize,fontupper=\tiny]{Hardening \& Misconfiguration}
 \begin{itemize}\tightitems
 \item NSA/CISA hardening guidance [1]; empirical misconfiguration studies [2,3]; EPScan detects excessive RBAC permissions [10]
-\item Formal verification of access policies [11]
+\item KubeKeeper protects secrets against excessive permissions [11]; formal verification of access policies [12]
 \end{itemize}
 \emph{Limitation:} target \textbf{correctness of individual policies} --- not \emph{unified} authorization across mixed models.
 \end{callout}
 \vspace{2pt}
 \begin{callout}[fonttitle=\bfseries\scriptsize,fontupper=\tiny]{RBAC, Policy-as-Code \& Zero Trust}
 \begin{itemize}\tightitems
-\item K8s RBAC [4]; Zero Trust architecture [12]; PerfSPEC profiling [13]; compile-time policy optimization [14]
+\item K8s RBAC [4]; KubeFence attack-surface hardening [13]; Zero Trust architecture [14]; PerfSPEC profiling [15]; compile-time policy optimization [16]
 \end{itemize}
 \emph{Limitation:} operate \textbf{within a single model}; repeated per-layer evaluation $\Rightarrow$ redundant checks and added latency.
 \end{callout}
@@ -265,8 +265,8 @@ SSO lets a user authenticate \emph{once} with a single identity (e.g.\ OIDC / Ke
 \begin{column}{0.49\textwidth}
 \begin{callout}[fonttitle=\bfseries\scriptsize,fontupper=\tiny]{Expressive \& Graph-Based Models}
 \begin{itemize}\tightitems
-\item XACML [7]: expressive but heavyweight PDP, ill-suited to low-latency cloud-native; compiled-XACML indices [15] motivate our compile-time design
-\item Graph / relationship-based AC [8,16]; Zanzibar [17] scales but needs \emph{runtime graph traversal}; ABAC$\to$RBAC conversion [18]
+\item XACML [7]: expressive but heavyweight PDP, ill-suited to low-latency cloud-native; compiled-XACML indices [17] motivate our compile-time design
+\item Graph / relationship-based AC [8,18]; Zanzibar [19] scales but needs \emph{runtime graph traversal}; ABAC$\to$RBAC conversion [20]
 \end{itemize}
 \emph{Limitation:} heavy PDPs, runtime-traversal overhead, or interoperability only --- no efficient \emph{unified} runtime.
 \end{callout}
@@ -451,66 +451,62 @@ by cheap, model-specific index evaluation.
 %% ── Left: visual diagram ────────────────────────────────────────────
 \begin{column}{0.47\textwidth}
 \centering
-\scalebox{1.20}{%
+\scalebox{1.05}{%
 \begin{tikzpicture}[
-  anode/.style={draw=uhapNavy!50,fill=uhapGray,rounded corners=1pt,
-                font=\tiny\bfseries,text=uhapNavyD,
-                minimum width=0.7cm,minimum height=0.33cm},
-  snode/.style={draw=uhapTeal,fill=uhapTeal!15,rounded corners=1pt,
-                font=\tiny,minimum width=0.7cm,minimum height=0.30cm},
-  dnode/.style={draw=uhapRed!60,fill=uhapRed!8,rounded corners=1pt,
-                font=\tiny,minimum width=0.7cm,minimum height=0.30cm},
-  arr/.style={-{Stealth[scale=0.45]},uhapNavy!50,thin},
-  tarr/.style={-{Stealth[scale=0.45]},uhapTeal!80,thin}]
+  gate/.style={draw=uhapNavy!55,fill=uhapGray,rounded corners=1pt,
+               font=\tiny\bfseries,text=uhapNavyD,
+               minimum width=0.64cm,minimum height=0.32cm},
+  shar/.style={draw=uhapTeal,line width=0.6pt,fill=uhapTeal!18,rounded corners=1pt,
+               font=\tiny\bfseries,text=uhapNavyD,
+               minimum width=0.64cm,minimum height=0.32cm},
+  atom/.style={draw=uhapNavy!40,fill=white,rounded corners=1pt,
+               font=\tiny,text=uhapGrayD,minimum width=0.56cm,minimum height=0.30cm},
+  satom/.style={draw=uhapTeal,fill=uhapTeal!12,rounded corners=1pt,
+               font=\tiny,text=uhapNavyD,minimum width=0.56cm,minimum height=0.30cm},
+  ptag/.style={font=\tiny\bfseries,text=uhapTeal},
+  arr/.style={-{Stealth[scale=0.4]},uhapNavy!45,thin},
+  tarr/.style={-{Stealth[scale=0.4]},uhapTeal!85,semithick}]
 
-%% Naïve tree (top)
-\node[font=\tiny\bfseries,color=uhapNavyD,text width=4cm,align=center]
-  at (1.8,4.1) {Naïve tree --- \textbf{6 nodes}};
+%% Title
+\node[font=\tiny\bfseries,color=uhapNavyD,text width=4.6cm,align=center]
+  at (2.05,4.05) {Hash-consed predicate DAG --- paper's P1--P4};
 
-\node[anode] (na1) at (0.75,3.55) {AND};
-\node[anode] (na2) at (2.85,3.55) {AND};
-\node[font=\tiny\itshape,color=uhapGrayD] at (0.75,3.95) {P1};
-\node[font=\tiny\itshape,color=uhapGrayD] at (2.85,3.95) {P2};
+%% Layer-2 gates (roots of P2, P4)
+\node[gate] (gP2) at (1.4,3.05) {AND};
+\node[gate] (gP4) at (3.3,3.05) {AND};
+\node[ptag] at (1.4,3.48) {P2};
+\node[ptag] at (3.3,3.48) {P4};
 
-\node[snode] (nL)  at (0.2, 2.85) {loc};
-\node[snode] (nT1) at (1.3, 2.85) {time};
-\node[dnode] (nT2) at (2.3, 2.85) {time};
-\node[snode] (nD)  at (3.4, 2.85) {dept};
+%% Layer-1 gates (shared; also roots of P1, P3)
+\node[shar] (gOR) at (0.85,1.7) {OR};
+\node[shar] (g23) at (2.45,1.7) {AND};
+\node[ptag,anchor=east] at (0.45,1.92) {P1};
+\node[ptag,anchor=west] at (2.88,1.92) {P3};
 
-\draw[arr] (na1)--(nL);  \draw[arr] (na1)--(nT1);
-\draw[arr] (na2)--(nT2); \draw[arr] (na2)--(nD);
+%% Atoms (a2 shared)
+\node[atom]  (a1) at (0.30,0.45) {a1};
+\node[satom] (a2) at (1.55,0.45) {a2};
+\node[atom]  (a3) at (2.70,0.45) {a3};
+\node[atom]  (a4) at (3.80,0.45) {a4};
 
-\node[font=\tiny,color=uhapRed,text width=4.2cm,align=center]
-  at (1.8,2.48) {\textit{\textbf{time} node exists twice --- evaluated twice}};
+%% Edges (teal = into a shared node)
+\draw[tarr] (gP2)--(gOR);
+\draw[tarr] (gP2)--(g23);
+\draw[tarr] (gP4)--(g23);
+\draw[arr]  (gP4)--(a4);
+\draw[arr]  (gOR)--(a1);
+\draw[tarr] (gOR)--(a2);
+\draw[tarr] (g23)--(a2);
+\draw[arr]  (g23)--(a3);
 
-%% Divider + label
-\draw[uhapNavy!20,thin] (-0.1,2.22) -- (3.8,2.22);
-\node[font=\tiny\bfseries,color=uhapTeal,text width=4cm,align=center]
-  at (1.8,2.0) {hash consing: identify \& merge identical nodes};
+%% Legend + atom key
+\node[font=\fontsize{6}{6.5}\selectfont,color=uhapGrayD,text width=4.8cm,align=center]
+  at (2.05,-0.08) {\textcolor{uhapTeal}{$\blacksquare$}~shared node \quad
+   $a_1$\,net \ $a_2$\,time \ $a_3$\,dept \ $a_4$\,clearance};
 
-%% Hash-consed DAG (bottom)
-\node[font=\tiny\bfseries,color=uhapNavyD,text width=4cm,align=center]
-  at (1.8,1.75) {Hash-consed DAG --- \textbf{5 nodes}};
-
-\node[anode] (db1) at (0.75,1.2) {AND};
-\node[anode] (db2) at (2.85,1.2) {AND};
-\node[font=\tiny\itshape,color=uhapGrayD] at (0.75,1.58) {P1};
-\node[font=\tiny\itshape,color=uhapGrayD] at (2.85,1.58) {P2};
-
-\node[snode] (dL) at (0.2,  0.45) {loc};
-\node[snode] (dT) at (1.8,  0.45) {time};
-\node[snode] (dD) at (3.4,  0.45) {dept};
-
-\draw[tarr] (db1)--(dL);
-\draw[tarr] (db1) to[bend left=12] (dT);
-\draw[tarr] (db2) to[bend right=12] (dT);
-\draw[tarr] (db2)--(dD);
-
-\node[font=\tiny,color=uhapGreen,text width=4.2cm,align=center]
-  at (1.8,0.04) {\textbf{time} shared --- evaluated \emph{once}, result memoized};
-
-\node[font=\tiny\itshape,color=uhapGrayD,text width=4.2cm,align=center]
-  at (1.8,-0.28) {Paper's P1--P4 example: 11 nodes $\to$ 8 nodes};
+%% Reduction caption
+\node[font=\tiny\bfseries,color=uhapTeal,text width=4.9cm,align=center]
+  at (2.05,-0.6) {7 gate instances $\to$ 4 unique gates:\ \ \textbf{11 $\to$ 8 nodes}};
 \end{tikzpicture}%
 }
 \end{column}
@@ -668,7 +664,7 @@ This invariant is enforced at compile time and cannot be bypassed.
 \begin{itemize}\tightitems
 \item \textbf{Isolation:} curves flat as $N{:}10{\to}1{,}000$ --- adding namespaces has \emph{zero} cost
 \item \textbf{U-HAP:} ${\approx}$15.5\,\textmu s --- O(1) lookup, constant vs.\ $N$
-\item \textbf{+Cache:} ${\approx}$1.8\,\textmu s --- \textbf{14--15$\times$} speedup over SSO
+\item \textbf{+Cache:} ${\approx}$1.8\,\textmu s --- \textbf{${\sim}$14$\times$} speedup over SSO
 \item \textbf{SSO:} ${\approx}$26\,\textmu s --- 1.6--1.7$\times$ slower than U-HAP
 \end{itemize}
 \end{callout}
@@ -718,9 +714,9 @@ This invariant is enforced at compile time and cannot be bypassed.
 \vspace{2pt}
 \begin{callout}[fontupper=\scriptsize]{Key Results}
 \begin{itemize}\tightitems
-\item \textbf{ABAC:} hash-consed DAG → $\mathbf{16.9\times}$ at $k{=}320$; crossover $k{\approx}18$
-\item \textbf{RBAC:} bit-vector AND → $\mathbf{5.6\times}$ at $k{=}320$; crossover $k{\approx}15$
-\item \textbf{ACL:} hash-set → $\mathbf{5.0\times}$ at $k{=}320$; crossover $k{\approx}35$
+\item \textbf{ABAC:} hash-consed DAG → $\mathbf{16.9\times}$ at $k{=}320$; crossover $k{\approx}20$
+\item \textbf{RBAC:} bit-vector AND → $\mathbf{5.6\times}$ at $k{=}320$; crossover $k{\approx}20$
+\item \textbf{ACL:} hash-set → $\mathbf{5.0\times}$ at $k{=}320$; crossover $k{\approx}30$
 \item $<$1$\times$ at small $k$: compilation overhead not yet amortized
 \end{itemize}
 \end{callout}
@@ -751,7 +747,7 @@ This invariant is enforced at compile time and cannot be bypassed.
 % ════════════════════════════════════════════════════════════════════════════
 % 10. EXPERIMENT 3 — POLICY UPDATE LATENCY
 % ════════════════════════════════════════════════════════════════════════════
-\begin{frame}[t]{Experiment 3: Policy Update Latency vs.\ OPA}
+\begin{frame}[t]{Experiment 3: Policy Update Latency vs.\ OPA~[21]}
 \vspace{-2pt}
 \begin{columns}[T,onlytextwidth]
 %% Left: graph + key results
@@ -860,20 +856,23 @@ deterministic deny-override conflict resolution.
 [7] OASIS, ``XACML Version 3.0 Plus Errata 01,'' OASIS Standard, 2017.\par
 [8] M.\ Yang \emph{et al.}, ``A Graph-Based Framework for ABAC Policy Enforcement and Analysis,'' \emph{DBSec}, 2024.\par
 [9] Z.\ Mori\'c \emph{et al.}, ``Security Hardening and Compliance Assessment of Kubernetes,'' \emph{J.\ Cybersec.\ Privacy}, 5(2), 2025.\par
+[10] Y.\ Gu \emph{et al.}, ``EPScan: Automated Detection of Excessive RBAC Permissions in Kubernetes,'' \emph{IEEE S\&P}, 2025.\par
 }
 \end{column}
 \begin{column}{0.49\textwidth}
-{\tiny\setlength{\parindent}{0pt}\setlength{\parskip}{2.2pt}%
+{\tiny\setlength{\parindent}{0pt}\setlength{\parskip}{2.0pt}%
 \everypar{\hangindent=1.3em\hangafter=1}%
-[10] Y.\ Gu \emph{et al.}, ``EPScan: Automated Detection of Excessive RBAC Permissions in Kubernetes,'' \emph{IEEE S\&P}, 2025.\par
-[11] A.\ Sissodiya \emph{et al.}, ``Formal Verification for Preventing Misconfigured Access Policies in Kubernetes,'' \emph{IEEE Access}, 13, 2025.\par
-[12] R.\ Chandramouli \& Z.\ Butcher, ``A Zero Trust Architecture Model for Cloud-Native Applications,'' \emph{NIST SP 800-207A}, 2023.\par
-[13] H.\ Nguyen \emph{et al.}, ``PerfSPEC: Profiling-Based Proactive Security Policy Enforcement for Containers,'' \emph{IEEE Computer}, 2025.\par
-[14] S.\ Kern \emph{et al.}, ``Optimization of Access Control Policies,'' \emph{J.\ Inf.\ Secur.\ Appl.}, 70, 2022.\par
-[15] A.\ X.\ Liu \emph{et al.}, ``Designing Fast and Scalable XACML Policy Evaluation Engines,'' \emph{IEEE Trans.\ Computers}, 60(12), 2011.\par
-[16] L.\ Ma \emph{et al.}, ``Authorization Model of Attribute Access Control Based on Knowledge Graph,'' \emph{UbiSec}, 2024.\par
-[17] R.\ Pang \emph{et al.}, ``Zanzibar: Google's Consistent, Global Authorization System,'' \emph{USENIX ATC}, 2019.\par
-[18] M.\ Davari \& M.\ Zulkernine, ``Automatic Conversion of ABAC Policies for RBAC Systems,'' \emph{IEEE DSC}, 2023.\par
+[11] M.\ Rostamipoor \emph{et al.}, ``KubeKeeper: Protecting Kubernetes Secrets Against Excessive Permissions,'' \emph{IEEE EuroS\&P}, 2025.\par
+[12] A.\ Sissodiya \emph{et al.}, ``Formal Verification for Preventing Misconfigured Access Policies in Kubernetes,'' \emph{IEEE Access}, 13, 2025.\par
+[13] C.\ Cesarano \& R.\ Natella, ``KubeFence: Security Hardening of the Kubernetes Attack Surface,'' \emph{IEEE/IFIP DSN}, 2025.\par
+[14] R.\ Chandramouli \& Z.\ Butcher, ``A Zero Trust Architecture Model for Cloud-Native Applications,'' \emph{NIST SP 800-207A}, 2023.\par
+[15] H.\ Kermabon-Bobinnec \emph{et al.}, ``PerfSPEC: Performance Profiling-Based Proactive Security Policy Enforcement for Containers,'' \emph{IEEE TDSC}, 22(2), 2025.\par
+[16] S.\ Kern \emph{et al.}, ``Optimization of Access Control Policies,'' \emph{J.\ Inf.\ Secur.\ Appl.}, 70, 2022.\par
+[17] A.\ X.\ Liu \emph{et al.}, ``Designing Fast and Scalable XACML Policy Evaluation Engines,'' \emph{IEEE Trans.\ Computers}, 60(12), 2011.\par
+[18] L.\ Ma \emph{et al.}, ``Authorization Model of Attribute Access Control Based on Knowledge Graph,'' \emph{UbiSec}, 2024.\par
+[19] R.\ Pang \emph{et al.}, ``Zanzibar: Google's Consistent, Global Authorization System,'' \emph{USENIX ATC}, 2019.\par
+[20] M.\ Davari \& M.\ Zulkernine, ``Automatic Conversion of ABAC Policies for RBAC Systems,'' \emph{IEEE DSC}, 2023.\par
+[21] Open Policy Agent, ``OPA --- Open Policy Agent,'' CNCF Graduated Project, 2024.\par
 }
 \end{column}
 \end{columns}

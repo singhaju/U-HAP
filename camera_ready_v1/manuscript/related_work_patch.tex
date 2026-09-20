@@ -1,0 +1,33 @@
+%% ==========================================================================
+%% Related Work patch — three 2025 references added per Reviewer 1.C3.
+%% Each is positioned against U-HAP rather than appended; insertion points
+%% in the existing §II are marked with %% INSERT comments.
+%% ==========================================================================
+
+%% INSERT into §II.B (Kubernetes admission-time authorization paragraph),
+%% just before the closing summary sentence. Two references go here.
+
+Recent 2025 work has continued to push the granularity of Kubernetes
+authorization. Rostamipoor~\textit{et~al.}~\cite{rostamipoor2025kubekeeper}
+introduce \emph{KubeKeeper}, an admission-webhook-based mechanism that
+restricts pod access to secrets at sub-RBAC granularity by intercepting
+\texttt{CREATE} and \texttt{UPDATE} requests at the same extension point
+U-HAP exploits; their evaluation is request-time only and does not
+quantify policy-update propagation. Cesarano and
+Natella~\cite{cesarano2025kubefence} present \emph{KubeFence}, which
+argues that RBAC alone lacks attribute-level granularity and compiles
+per-workload API filters at deploy time --- a design decision that
+aligns with U-HAP's compile-then-enforce philosophy, but operates at the
+container-image level rather than as a unified ACL/RBAC/ABAC/Deny
+authorizer.
+
+%% INSERT into §II.C (formal/verification paragraph). One reference here.
+
+Closer in spirit to our compile-time correctness arguments,
+Sissodiya~\textit{et~al.}~\cite{sissodiya2025formal} model Kubernetes
+RBAC and admission policies as first-order predicates and use SMT
+solvers to detect misconfigurations before deployment. While they
+target verification rather than enforcement, their formal predicate
+encoding parallels U-HAP's Phase~2 graph-and-index compilation; we view
+the two as complementary --- their tool can validate inputs to U-HAP's
+compiler.

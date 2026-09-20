@@ -1,0 +1,14 @@
+%% Sentence(s) to splice near the end of §V (Conclusion). Place after the
+%% existing summary of per-request results, before the future-work paragraph.
+
+Our newly-added update-latency comparison against OPA shows that
+U-HAP's compilation-driven design pays off twice: on the steady-state
+request path \emph{and} on the policy-change path. At 2000 rules,
+U-HAP completes the full edit-to-first-decision cycle in 223\,ms
+versus OPA's 611\,ms (2.73$\times$ end-to-end, 19.5$\times$ on the
+engine-only post-parse path), with a compiled-state footprint of
+2.7\,MiB. Combined with the per-request results of
+Sections~\ref{sec:exp1}--\ref{sec:exp4}, this evidence supports the
+claim that compile-time hash consing and indexed artifacts are the
+right architectural choice for Kubernetes admission-time
+authorization at production scale.

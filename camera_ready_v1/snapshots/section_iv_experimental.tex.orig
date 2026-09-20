@@ -1,0 +1,306 @@
+%% ==========================================================================
+\section{Experimental Evaluation}\label{sec:eval}
+
+We evaluate U-HAP against \textbf{Keycloak~24.0.5}~\cite{b19}, a widely
+deployed open-source SSO and identity management platform backed by Red
+Hat. Unlike simulation-based baselines, Keycloak provides a
+production-grade comparison: it exposes a full HTTP-based Policy
+Evaluation API with built-in support for role-based, group-based, and
+user-based authorization policies, making it the closest real-world
+counterpart to U-HAP's unified multi-model authorization.
+
+\subsection{Experimental Setup}
+
+All experiments run on a machine with an AMD Ryzen~9 7945HX (16 cores),
+32\,GB DDR5-4800 RAM, running CachyOS Linux. U-HAP is implemented in
+Python~3.14 with Flask~3.x and deployed under
+\textbf{Gunicorn~25.3} (1~synchronous worker). Keycloak runs in a Docker
+container (\texttt{quay.io/keycloak/keycloak:24.0.5}) on the same host.
+Both systems communicate via HTTP on localhost, ensuring that network
+latency is symmetric and minimal.
+
+\smallskip
+\noindent
+\textbf{Measurement Methodology.}
+Each data point is the median of 200 runs after 20 warm-up iterations.
+Timing uses \texttt{time.perf\_counter\_ns()} at the HTTP client, measuring
+the full round-trip latency including request serialization, HTTP transport,
+server-side policy evaluation, and response parsing. This captures
+\emph{end-to-end authorization cost} as experienced by the Kubernetes API
+server when invoking either webhook.
+
+\smallskip
+\noindent
+\textbf{Fairness of Comparison.}
+Both U-HAP and Keycloak are measured via HTTP on localhost, using
+production-grade application servers (Gunicorn for Python;
+Quarkus for Java/Keycloak). Authentication overhead is excluded:
+Keycloak's admin token is pre-fetched, and its Policy Evaluation API
+accepts a \texttt{userId} parameter, bypassing credential verification.
+U-HAP's webhook similarly receives pre-authenticated SAR requests.
+This ensures that both systems are compared purely on
+\emph{authorization evaluation performance}.
+
+\smallskip
+\noindent
+\textbf{Keycloak Policy Configuration.}
+Keycloak policies are configured to mirror U-HAP's three supported
+models. RBAC rules use Keycloak's native role-based policies. ACL rules
+are implemented as user-based policies. ABAC rules are modeled via
+group-based policies, as Keycloak~24 no longer supports JavaScript-based
+policies. Each Keycloak client is configured with authorization services
+enabled, and resource/scope pairs are created to match U-HAP's
+namespace/resource/action structure.
+
+%% --------------------------------------------------------------------------
+\subsection{Experiment 1: Application Scalability}
+
+This experiment evaluates how authorization latency scales as the number
+of applications (Kubernetes namespaces) grows. Each application defines
+a mix of RBAC, ABAC, and ACL rules, reflecting a realistic multi-tenant
+environment.
+
+\subsubsection{Experiment 1a --- Fixed Workload}\label{sec:exp1a}
+
+\textbf{Setup.}
+The total number of applications $N$ varies from 10 to 200 (9 steps).
+In each iteration, the system authorizes a \emph{fixed workload} of 10
+applications (always apps~0--9), while the remaining $N-10$ applications
+serve as background policies. This isolates the effect of system size
+on per-request latency. U-HAP is measured under two configurations:
+with decision cache enabled and with cache disabled.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{figures/exp1a_fixed_workload.png}
+\caption{Experiment~1a: Fixed 10-app workload latency as total
+  applications grow from 10 to 200. U-HAP (both cache configurations)
+  remains flat at ${\approx}\,7$\,ms per 10~checks; Keycloak shows a
+  slight upward trend from 9.4 to 9.8\,ms.}
+\label{fig:exp1a}
+\end{figure}
+
+\textbf{Results.}
+Fig.~\ref{fig:exp1a} shows that U-HAP maintains near-constant latency
+across all system sizes: approximately 7.0\,ms per 10~checks
+(0.70\,ms/check) regardless of whether $N=10$ or $N=200$, and
+regardless of cache configuration. Keycloak exhibits a slight upward
+trend, rising from 9.4\,ms ($N=10$) to 9.8\,ms ($N=200$).
+Table~\ref{tab:exp1a} summarizes the per-check latency.
+
+\begin{table}[H]
+\centering
+\caption{Experiment 1a: Per-check median latency (ms) for fixed
+  10-app workload at selected system sizes.}
+\label{tab:exp1a}
+\setlength{\tabcolsep}{4pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{rccc}
+\toprule
+\textbf{$N$} & \textbf{U-HAP (cache)} & \textbf{U-HAP (no cache)} & \textbf{Keycloak} \\
+\midrule
+10  & 0.699 & 0.686 & 0.943 \\
+50  & 0.704 & 0.693 & 0.957 \\
+100 & 0.707 & 0.697 & 0.965 \\
+200 & 0.704 & 0.694 & 0.981 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Interpretation.}
+U-HAP's flat latency profile confirms that its compiled, resource--action
+indexed registry provides $O(1)$ namespace isolation: adding more
+applications to the system does not affect the cost of authorizing a
+fixed set of resources. The near-identical cache~ON and cache~OFF results
+(0.70 vs.\ 0.69\,ms) indicate that at the HTTP level, transport overhead
+dominates the evaluation cost; U-HAP's algorithm completes in
+${\approx}\,0.01$\,ms, and the remaining ${\approx}\,0.68$\,ms is HTTP
+round-trip latency. Keycloak's 1.35$\times$ higher latency reflects its
+heavier server-side evaluation pipeline, although it also exhibits
+near-constant scaling in this fixed-workload scenario.
+
+\subsubsection{Experiment 1b --- Full Workload}\label{sec:exp1b}
+
+\textbf{Setup.}
+The system again scales from $N=10$ to $N=200$, but now the entire
+workload of \emph{all} $N$ applications is authorized per iteration,
+measuring how total authorization time grows with system size.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{figures/exp1b_full_workload.png}
+\caption{Experiment~1b: Total latency for authorizing all $N$ apps.
+  Both systems grow linearly (as expected), but U-HAP's per-check
+  cost is 1.3$\times$ lower than Keycloak's.}
+\label{fig:exp1b}
+\end{figure}
+
+\textbf{Results.}
+As shown in Fig.~\ref{fig:exp1b}, total authorization time grows
+linearly with~$N$ for both systems, as expected when every application
+requires one check. At $N=200$, U-HAP completes the full workload in
+136.3\,ms (0.68\,ms/check) versus Keycloak's 188.3\,ms
+(0.94\,ms/check), a consistent 1.38$\times$ speedup.
+
+\textbf{Interpretation.}
+The linear growth confirms that per-check latency is constant for both
+systems; the total cost simply accumulates across $N$~checks. U-HAP's
+lower per-check cost (0.68 vs.\ 0.94\,ms) arises from its lightweight
+index-based evaluation: after the $O(1)$ registry lookup, authorization
+reduces to hash-set membership (ACL), a single bitwise AND (RBAC), or
+a small number of gate evaluations (ABAC). Keycloak's higher per-check
+cost reflects its full policy decision point (PDP) pipeline, including
+policy retrieval, permission evaluation, and resource matching. At scale,
+this 0.26\,ms/check difference compounds: for a 200-application
+deployment, U-HAP saves 52\,ms per authorization cycle.
+
+%% --------------------------------------------------------------------------
+\subsection{Experiment 2: Rule Density per Policy Model}
+
+This experiment examines how each policy model (RBAC, ABAC, ACL)
+responds to increasing rule counts within a single application.
+
+\textbf{Setup.}
+A single application is configured with $k$ rules of one model type,
+where $k \in \{50, 100, 200, 300, 500\}$. The test request is
+designed to match the \emph{last} rule (worst case), forcing sequential
+evaluators to scan all rules before finding a match. Three models are
+tested independently. U-HAP uses compiled indices and is deployed under
+Gunicorn; Keycloak uses its native policy types.
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{figures/exp2_rule_density.png}
+\caption{Experiment~2: Per-check latency vs.\ number of rules for
+  RBAC, ABAC, and ACL. U-HAP (solid bars) remains flat; Keycloak
+  (hatched bars) shows significant growth for RBAC.}
+\label{fig:exp2}
+\end{figure}
+
+\textbf{Results.}
+Fig.~\ref{fig:exp2} and Table~\ref{tab:exp2} present the results.
+
+\begin{table}[H]
+\centering
+\caption{Experiment 2: Median latency (ms) per single authorization
+  check. Speedup = Keycloak\,/\,U-HAP.}
+\label{tab:exp2}
+\setlength{\tabcolsep}{3.5pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Model} & \textbf{$k$} & \textbf{U-HAP} & \textbf{Keycloak} & \textbf{Speedup} \\
+\midrule
+\multirow{5}{*}{RBAC}
+& 50  & 0.70 & 1.29  & 1.84$\times$ \\
+& 100 & 0.68 & 1.67  & 2.45$\times$ \\
+& 200 & 0.68 & 2.87  & 4.22$\times$ \\
+& 300 & 0.67 & 3.65  & 5.45$\times$ \\
+& 500 & 0.69 & 6.37  & \textbf{9.23$\times$} \\
+\midrule
+\multirow{5}{*}{ABAC}
+& 50  & 0.68 & 0.52  & 0.76$\times$ \\
+& 100 & 0.70 & 0.53  & 0.76$\times$ \\
+& 200 & 0.68 & 0.49  & 0.72$\times$ \\
+& 300 & 0.66 & 0.50  & 0.76$\times$ \\
+& 500 & 0.70 & 0.50  & 0.71$\times$ \\
+\midrule
+\multirow{5}{*}{ACL}
+& 50  & 0.66 & 0.81  & 1.23$\times$ \\
+& 100 & 0.77 & 0.81  & 1.05$\times$ \\
+& 200 & 0.69 & 0.79  & 1.15$\times$ \\
+& 300 & 0.71 & 0.82  & 1.15$\times$ \\
+& 500 & 0.66 & 0.81  & 1.23$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent
+\textbf{RBAC:} U-HAP maintains flat latency (${\approx}\,0.69$\,ms)
+regardless of rule count, while Keycloak grows linearly from
+1.29\,ms ($k=50$) to 6.37\,ms ($k=500$). At 500 rules, U-HAP achieves
+a 9.23$\times$ speedup. This demonstrates the benefit of compile-time
+bit-vector encoding: after transitive closure, RBAC authorization
+reduces to a single bitwise AND operation, independent of the number
+of roles.
+
+\noindent
+\textbf{ABAC:} Keycloak is faster than U-HAP (0.50\,ms vs.\
+0.68\,ms). This is because U-HAP's ABAC algorithm itself completes
+in ${\approx}\,0.003$--$0.019$\,ms, but the HTTP round-trip overhead
+(${\approx}\,0.68$\,ms via Gunicorn) dominates the end-to-end
+measurement. Keycloak's Quarkus-based server incurs lower HTTP overhead
+(${\approx}\,0.38$\,ms), and its group-based policy evaluation is
+lightweight, resulting in a lower total. This result highlights that for
+simple ABAC policies, the HTTP transport layer --- not the authorization
+algorithm --- is the performance bottleneck.
+
+\noindent
+\textbf{ACL:} Both systems exhibit flat, comparable latency
+(${\approx}\,0.70$ vs.\ ${\approx}\,0.81$\,ms), with U-HAP
+achieving a modest 1.15--1.23$\times$ speedup. ACL authorization in
+both systems reduces to a membership check, explaining the similar
+performance.
+
+%% --------------------------------------------------------------------------
+\subsection{Discussion}\label{sec:discussion}
+
+\textbf{HTTP overhead dominance.}
+Across all experiments, the HTTP transport overhead
+(${\approx}\,0.68$\,ms for Gunicorn, ${\approx}\,0.38$\,ms for
+Keycloak's Quarkus) constitutes the majority of end-to-end latency.
+U-HAP's algorithm-level evaluation completes in 0.001--0.019\,ms
+(verified via in-process benchmarks), meaning that over 95\% of
+the measured latency is HTTP overhead, not policy evaluation. In a
+production Kubernetes deployment, where the webhook is co-located
+with the API server and can use Unix domain sockets or gRPC, this
+overhead would be substantially reduced, further amplifying U-HAP's
+algorithmic advantage.
+
+\smallskip
+\noindent
+\textbf{Where U-HAP excels.}
+U-HAP's compilation-driven design provides the greatest advantage in
+RBAC-heavy environments with large rule sets: the 9.23$\times$
+speedup at 500 RBAC rules (Table~\ref{tab:exp2}) demonstrates that
+compile-time transitive closure and bit-vector matching eliminate
+the linear scanning cost that affects sequential evaluators such as
+Keycloak. Additionally, U-HAP's $O(1)$ namespace isolation
+(Fig.~\ref{fig:exp1a}) ensures that adding applications to a
+multi-tenant cluster does not degrade authorization performance for
+any individual application.
+
+\smallskip
+\noindent
+\textbf{Where U-HAP is comparable.}
+For lightweight policies (simple ACL lookups or small ABAC rule sets),
+both systems converge to similar latencies dominated by HTTP transport.
+In the ABAC case, Keycloak's lower HTTP overhead (Java/Quarkus vs.\
+Python/Gunicorn) gives it a 0.18\,ms advantage per request. This
+suggests that reimplementing U-HAP's evaluation engine in a
+lower-overhead runtime (e.g., Go, Rust, or native Java) would close
+this gap while preserving the algorithmic advantages.
+
+\smallskip
+\noindent
+\textbf{Decision cache impact.}
+The decision cache showed negligible impact at the HTTP level: cache~ON
+and cache~OFF measurements differ by less than 0.02\,ms
+(Table~\ref{tab:exp1a}), because the cache saves only
+${\approx}\,0.01$\,ms of algorithm time, which is invisible within
+the ${\approx}\,0.68$\,ms HTTP envelope. However, in-process benchmarks
+confirm a 2.2$\times$ speedup from caching (0.003\,ms vs.\ 0.007\,ms
+per check), which becomes significant in deployments using Unix sockets
+or in-process policy evaluation where HTTP overhead is eliminated.
+
+\smallskip
+\noindent
+\textbf{Comparison with simulated baselines.}
+While our primary evaluation uses Keycloak as a real-world baseline,
+supplementary in-process benchmarks (not shown) confirm the algorithmic
+claims from Section~\ref{sec:design}: U-HAP's per-check evaluation
+is $O(1)$ for ACL and RBAC, and sub-linear for ABAC with predicate
+sharing, consistent with the compile-time index design. The use of a
+real SSO system as the baseline --- rather than complexity-faithful
+simulations of OPA or Zanzibar --- provides stronger evidence that
+U-HAP's advantages hold in practical deployment scenarios.
